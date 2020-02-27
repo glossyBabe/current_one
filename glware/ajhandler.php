@@ -1,4 +1,5 @@
 <?php
+
 	// this handler also may be included in snippet or plugin
 	if (isset($modx) && $modx instanceof $modx) {
 		$output_mode = 'slave';
