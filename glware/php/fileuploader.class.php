@@ -16,6 +16,8 @@
 			}
 
 			$this->config = array(
+				'prev_width' => 5,
+				'prev_height' => 5,
 				'id_set' => array(
 					'gallery' => 'new_picture',
 					'presentation' => 'presentation',
@@ -48,22 +50,20 @@
 					$this->files[] = array(
 						'name' => $files['name'][$i],
 						'tmp_name' => $files['tmp_name'][$i],
-						'type' => $files['type'][$i],
+						'type' => $this->requested_type,
 						'error' => $files['error'][$i],
 						'size' => $files['size'][$i],
 						'buffer_path' => $this->config['buffer'],
-						'real_type' => false
 					);
 				}
 			} else {
 				$this->files[] = array(
 					'name' => $files['name'],
 					'tmp_name' => $files['tmp_name'],
-					'type' => $files['type'],
+					'type' => $this->requested_type,
 					'error' => $files['error'],
 					'size' => $files['size'],
 					'buffer_path' => $this->config['buffer'],
-					'real_type' => false
 				);
 			}
 
@@ -74,24 +74,28 @@
 				if (!empty($this->check_removing())) {
 					$this->response['deleted'] = $deleted_files;
 				}
-				$type_set = array('jpg', 'gif', 'png');
+				$type_set = array('jpeg', 'gif', 'png');
+				$size = 10000000;
 
 			} else if ($type == 'logo' || $type == 'photo') {
-				$type_set = array('jpg', 'gif', 'ai', 'png');
+				$type_set = array('jpeg', 'gif', 'ai', 'png');
+				$size = 10000000;
 
 			} else if ($type == 'presentation') {
 				$type_set = array('pptx', 'ppt');
+				$size = 10000000;
 
 			} else if ($type == 'press_release') {
 				$type_set = array('odt', 'doc', 'docx');
+				$size = 10000000;
 			}
 
-			if ($this->analyzer->validate($type_set, $this->files)) {
-				$this->_upload($type, true);
-			} else {
-				$this->god_object->log("Analyzer aborted file loading because requested type was not approved");
-				$this->response['errors'] = $this->analyzer->get_errors();
-			}
+			$this->files = $this->analyzer->validate(array(
+				'size_constraint' => $size,	
+				'types' => $type_set
+			), $this->files);
+
+			$this->_upload($file, $type, true);
 		}
 
 
@@ -181,11 +185,10 @@
 		}
 
 
-		private function make_preview($file, $w, $h) {
+		private function make_preview($file) {
 			$result = false;
 			$prev_w = $this->compute_size($file, $this->config['prev_width'], $this->config['prev_height'], 'width');
 			$prev_h = $this->compute_size($file, $this->config['prev_width'], $this->config['prev_height'], 'height');
-
 			
 			$corresponding_funcs = array(
 				'jpg' => array('imagecreatefromjpeg', 'imagejpeg'),
@@ -194,18 +197,18 @@
 				'png' => array('imagecreatefrompng', 'imagepng')
 			);
 
-			if (is_callable($corresponding_funcs[$file['type']][0]) && is_callable($corresponding_funcs[$file['type']][1])) {
+			if (is_callable($corresponding_funcs[$file['real_type']][0]) && is_callable($corresponding_funcs[$file['real_type']][1])) {
 				$image = imagecreatetruecolor($prew_w, $prev_h);
-				$im_old = call_user_func($corresponding_funcs[$file['type']][0], $file['buffer_path']);;
+				$im_old = call_user_func($corresponding_funcs[$file['real_type']][0], $file['buffer_path']);;
 				imagecopyresampled($image, $memory_image, 0, 0, 0, 0, $prev_w, $prev_h, $file['w'], $file['h']);
-				$result = call_user_func($corresponding_funcs[$file['type']][1], $image, $file['preview_path']);
+				$result = call_user_func($corresponding_funcs[$file['real_type']][1], $image, $file['preview_path']);
 			
 				imagedestroy($image);
 				imagedestroy($im_old);
 
 			} else {
 				$result = true;
-				$this->god_object->log("Preview making omitted, because file type is not supposed to be resized; filename: " . $file['name'], 3);
+				$this->god_object->log("Preview making omitted; filename: " . $file['name'] . "; functions: ", 3);
 			}
 
 			if (!$result) {
