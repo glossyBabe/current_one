@@ -38,7 +38,7 @@
 		}
 
 		public function upload() {
-			$valid = false;
+			$valid = $make_preview = false;
 			$loaded_files = $deleted_files = array();
 			$key = $this->config['id_set'][$this->requested_type];
 
@@ -54,6 +54,8 @@
 						'error' => $files['error'][$i],
 						'size' => $files['size'][$i],
 						'buffer_path' => $this->config['buffer'],
+						'w' => GetImageSize($files['tmp_name'][$i])[0],
+						'h' => GetImageSize($files['tmp_name'][$i])[1]
 					);
 				}
 			} else {
@@ -64,6 +66,8 @@
 					'error' => $files['error'],
 					'size' => $files['size'],
 					'buffer_path' => $this->config['buffer'],
+					'w' => GetImageSize($files['tmp_name'])[0],
+					'h' => GetImageSize($files['tmp_name'])[1]
 				);
 			}
 
@@ -76,6 +80,7 @@
 				}
 				$type_set = array('jpeg', 'gif', 'png');
 				$size = 10000000;
+				$make_preview = true;
 
 			} else if ($type == 'logo' || $type == 'photo') {
 				$type_set = array('jpeg', 'gif', 'ai', 'png');
@@ -95,7 +100,7 @@
 				'types' => $type_set
 			), $this->files);
 
-			$this->_upload($file, $type, true);
+			$this->_upload($type, $make_preview);
 		}
 
 
@@ -125,8 +130,20 @@
 		}
 
 
-		private function _upload($type, $make_preview = false) {
-			$path = $type == 'gallery' ? $this->config['buffer'] . '/gallery' : $this->config['buffer'];
+		private function _upload($type, $preview = false) {
+			if ($type == 'gallery') {
+				$path = $this->config['buffer'] . '/gallery';
+				
+				if (!is_dir($path)) {
+					if (is_writable($this->config['buffer'])) {
+						mkdir($path);
+					} else {
+						$this->god_object->log("Some directory permissions requried for uploader working", 1);
+					}
+				}
+			} else {
+				$path = $this->config['buffer'];
+			}
 
 			/* todo: all security procedures before file loading */
 			
@@ -139,11 +156,11 @@
 					$this->response['loaded'][] = $file['name'];
 
 					$file['buffer_path'] = $path . '/' . $file['name'];
-					if (!isset($file['preview_path'])) {
+					if ($preview && !isset($file['preview_path'])) {
 						$file['preview_path'] = $path . '/s_' . $file['name'];
 					}
 
-					if (!$this->make_preview($file)) {
+					if ($preview && !$this->make_preview($file)) {
 						$this->response['errors'][] = "Error occured while making preview; Filename: " . $file['name'];
 					}
 
@@ -187,6 +204,7 @@
 
 		private function make_preview($file) {
 			$result = false;
+			
 			$prev_w = $this->compute_size($file, $this->config['prev_width'], $this->config['prev_height'], 'width');
 			$prev_h = $this->compute_size($file, $this->config['prev_width'], $this->config['prev_height'], 'height');
 			
@@ -197,18 +215,19 @@
 				'png' => array('imagecreatefrompng', 'imagepng')
 			);
 
-			if (is_callable($corresponding_funcs[$file['real_type']][0]) && is_callable($corresponding_funcs[$file['real_type']][1])) {
-				$image = imagecreatetruecolor($prew_w, $prev_h);
-				$im_old = call_user_func($corresponding_funcs[$file['real_type']][0], $file['buffer_path']);;
-				imagecopyresampled($image, $memory_image, 0, 0, 0, 0, $prev_w, $prev_h, $file['w'], $file['h']);
-				$result = call_user_func($corresponding_funcs[$file['real_type']][1], $image, $file['preview_path']);
-			
-				imagedestroy($image);
-				imagedestroy($im_old);
+			$img_create = $corresponding_funcs[$file['real_type']][0];
+			$img_save = $corresponding_funcs[$file['real_type']][1];
 
-			} else {
-				$result = true;
-				$this->god_object->log("Preview making omitted; filename: " . $file['name'] . "; functions: ", 3);
+			if (is_callable($img_create) && is_callable($img_save)) {
+				$preview_handl = imagecreatetruecolor($prev_w, $prev_h);
+				$source_handl = call_user_func($img_create, $file['buffer_path']);
+				$this->god_object->log('status of resizng: ' . print_r(array(0 => intval($preview_handl), 1 => gettype($source_handl),
+						2 => $prev_h, 3 => $prev_w), true), 3);
+				imagecopyresampled($preview_handl, $source_handl, 0, 0, 0, 0, $prev_w, $prev_h, $file['w'], $file['h']);
+				$result = call_user_func($img_save, $preview_handl, $file['preview_path']);
+			
+				imagedestroy($preview_handl);
+				imagedestroy($source_handl);
 			}
 
 			if (!$result) {
