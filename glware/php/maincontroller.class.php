@@ -13,16 +13,18 @@
 		private $log_level = 3;
 		private $log_file_path = '';
 		private $log_events = array();
-
+		
 		private $required_classes = array(
-			'FileUploader', 'FileAnalyzer', 'ChatBackend', 'FormProcessor', 'AdminViewer'
+			'fileuploader', 'fileanalyzer', 'chatbackend', 'formprocessor', 'adminviewer'
 		);
 
 		public function __construct($modx, $config) {
 			$this->modx = $modx;
 			$this->work_dir = $config['work_dir'] != '' ? ($config['work_dir'] . '/php') : dirname(__FILE__);
 			$this->log_file_path = $config['log_file_path'] != '' ? $config['log_level_path'] : (dirname(dirname($this->work_dir)) . '/log_file');
+			$js_path = dirname($this->work_dir) . '/js';
 
+					
 			$this->action = array_key_exists('action', $config) ? $config['action'] : '';
 		}
 
@@ -76,8 +78,6 @@
 					break;
 				}
 			}
-
-			
 
 			$this->user = $this->modx->user;
 			$this->user_type = '';
