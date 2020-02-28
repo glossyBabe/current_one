@@ -1,11 +1,10 @@
 <?php
 
 	// this handler also may be included in snippet or plugin
-	$output_mode = 'master';
-	$abort = false;
+	$mode = 'full';
 
 	if (isset($modx) && $modx instanceof $modx) {
-		$output_mode = 'slave';
+		$mode = 'scripts';
 	} else {
 		define('MODX_API_MODE', true);
 		require_once $root_path . "/index.php";
@@ -17,7 +16,7 @@
 
 	// since code being loaded anytime when onbeforeclientscript fired we need
 	// method for preventing full initialization, but we steel need our scripts
-	if ($output_mode == 'slave' && $modx->event->name == 'OnBeforeRegisterClientScripts') {
+	if ($mode == 'scripts' && $modx->event->name == 'OnBeforeRegisterClientScripts') {
 		$r_id = $modx->resource->get('id');
 
 		$js_path = '/third_party/glware/js/';
@@ -26,7 +25,7 @@
 			'server' => $js_path . 'lib.server.js',
 			'selectable' => $js_path . 'lib.selectable.js',
 			'store' => $js_path . 'lib.imagestore.js',
-			'formevents' => $js_path . 'lib.formcontroller.js'
+			'formevents' => $js_path . 'formevents.js'
 		);
 
 		$resources_js = array(
@@ -41,12 +40,10 @@
 			}
 
 			$modx->log(modx_log_level_error, "glw: scripts included: " . $resources_js[$r_id]);
-		} else {
-			$abort = true;
 		}
 	}
 
-	if (!$abort) {
+	if ($mode == 'full') {
 		$root_path = MODX_BASE_PATH;
 		$work_dir = $root_path . 'third_party/glware';
 		
@@ -73,9 +70,5 @@
 			$response = array('success' => false, 'info' => 'unknown request');
 		}
 
-		if ($output_mode == 'slave') {
-			$o = json_encode($response);
-		} else {
-			echo json_encode($response);
-		}
+		echo json_encode($response);
 	}
