@@ -42,8 +42,7 @@
 
 		private function is_jpeg($file) {
 			$last_part = array_pop(explode('.', $file['name']));
-			$this->god_object->log("last_part is " . $last_part);
-			return strtolower($last_part) == 'jpg' ? 'jpg' : false;
+			return strtolower($last_part) == 'jpg' || strtolower($last_part) == 'jpeg' ? 'jpg' : false;
 		}
 
 		private function is_gif($file) {
