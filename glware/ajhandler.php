@@ -7,7 +7,7 @@
 		$mode = 'scripts';
 	} else {
 		define('MODX_API_MODE', true);
-		require_once $root_path . "/index.php";
+		require_once  $_SERVER['DOCUMENT_ROOT'] . "/index.php";
 
 		$modx->getService("error", "error.modError");
 		$modx->setLogLevel(modX::LOG_LEVEL_INFO);

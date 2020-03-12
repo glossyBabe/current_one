@@ -11,8 +11,26 @@
 		public $adminviewer = false;
 
 		private $log_level = 3;
+		private $table_prefix = '';
+		private $database = '';
+
 		private $log_file_path = '';
 		private $log_events = array();
+
+		private $cant_create_table = 1005;
+		private $nominations = array(
+			'national_sell' => array('public_name' => "Национальная торговая компания", "public" => true),
+			'national_production' => array('public_name' => "Национальная производственная компания", "public" => true),
+			'salon' => array('public_name' => "Салон года", "public" => true),
+			'network' => array('public_name' => "Сеть года", "public" => true),
+			'debut' => array('public_name' => "Дебют года", "public" => true),
+			'innovation' => array('public_name' => "Инновация года", "public" => true),
+			'marketnetwork' => array('public_name' => "Маркетинговый проект года", "public" => true),
+			'advertising' => array('public_name' => "Рекламный проект года", "public" => true),
+			'privatelabel' => array('public_name' => "Частная торговая марка (Коллекция)", "public" => true),
+			'service' => array('public_name' => "Частная торговая марка (Коллекция)", "public" => true),
+			'jury_selected' => array('public_name' => "Выбран жюри", 'public' => false)
+		);
 		
 		private $required_classes = array(
 			'fileuploader', 'fileanalyzer', 'chatbackend', 'formprocessor', 'adminviewer'
@@ -20,10 +38,18 @@
 
 		public function __construct($modx, $config) {
 			$this->modx = $modx;
+
 			$this->work_dir = $config['work_dir'] != '' ? ($config['work_dir'] . '/php') : dirname(__FILE__);
 			$this->log_file_path = $config['log_file_path'] != '' ? $config['log_level_path'] : (dirname(dirname($this->work_dir)) . '/log_file');
-			$js_path = dirname($this->work_dir) . '/js';
+			$this->table_prefix = $modx->config[xPDO::OPT_TABLE_PREFIX];
 
+			$dsn_parts = explode(';', $this->modx->config[xPDO::OPT_CONNECTIONS][0]['dsn']);
+			foreach ($dsn_parts as $part) {
+				if (strpos('dbname', $part) !== FALSE) {
+					$left_right = explode('=', $part);
+					$this->database = $left_right[1];
+				}	
+			}
 					
 			$this->action = array_key_exists('action', $config) ? $config['action'] : '';
 		}
@@ -60,6 +86,23 @@
 
 		public function init() {
 			$class_path = $class_name = '';
+			$installed = false;
+
+			$result = $this->modx->query("SELECT * FROM information_schema.table WHERE "
+			. "TABLE_SCHEMA = " . $this->database . " AND TABLE_NAME = "
+			. $this->table_prefix . "nomination_list");
+	
+			if (!empty($result)) {
+				$result = $this->modx->query("SELECT * FROM " . $this->table_prefix . "nomination_list");
+
+				if (!empty($result)) {
+					$installed = true;
+				}
+			}
+
+			if (!$installed) {
+				$this->install();
+			}
 
 			if (!$this->action) {
 				return array('message' => 'no action found');
@@ -83,11 +126,66 @@
 			$this->user_type = '';
 		}
 
+
+		private function install() {
+			$this->log("Goldlornet Ware is not installed yet. Trying to setup tables;");
+			$tp = $this->table_prefix;
+
+			$create_nominations = "CREATE table IF NOT EXISTS {$tp}nomination_list (
+				id INT AUTO_INCREMENT,
+				code VARCHAR(60) NOT NULL,
+				public_name VARCHAR(150) NULL,
+				PRIMARY KEY (id)
+			)";
+			$create_request_table = "CREATE table IF NOT EXISTS {$tp}user_formit_request (
+				id INT AUTO_INCREMENT,
+				formit_hash VARCHAR(255) NOT NULL,
+				user_id INT NOT NULL,
+				date INT NOT NULL,
+				PRIMARY KEY (id)
+			)";
+			$create_request_nominations_table = "CREATE table IF NOT EXISTS {$tp}attendee_nomination_links (
+				id INT AUTO_INCREMENT,
+				request_id INT NOT NULL,
+				nomination_id INT NOT NULL,
+				PRIMARY KEY (id)
+			)";
+			$create_voting_table = "CREATE table IF NOT EXISTS {$tp}voting_results (
+				id INT AUTO_INCREMENT,
+				judge_id INT NOT NULL,
+				request_id INT NOT NULL,
+				nomination_id INT NOT NULL,
+				score TINYINT NULL,
+				year VARCHAR(4) NOT NULL,
+				PRIMARY KEY (id)
+			)";
+
+			$this->modx->query($create_nominations);
+			$err = $this->modx->errorInfo();
+
+			if ($err[1] == $this->cant_create_table) {
+				$this->log("Unfortunately, not allowed to create tables on this server programmatically. Instead you should fulfill this preparations manually");
+			} else {
+				$insert_nominations = "INSERT into {$tp}nomination_list (code, public_name) VALUES ";
+				$values = array();
+				foreach ($this->nominations as $code => $nomination) {
+					$values[] = "('{$code}', '{$nomination['public_name']}')";
+				}
+
+				$this->modx->query($insert_nominations . implode(',', $values));
+		
+				$this->modx->query($create_request_table);
+				$this->modx->query($create_request_nominations_table);
+				$this->modx->query($create_voting_table);
+			}
+		}
+
+
 		public function handle() {
 			$output = array();
 
 			switch ($this->action) {
-				case 'attach_to_user':
+				case 'request':
 					if ($this->config['mode'] != 'slave') {
 						return array('errors' => 'Error occured; wrong query use');
 					}
