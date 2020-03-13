@@ -25,11 +25,12 @@
 			'server' => $js_path . 'lib.server.js',
 			'selectable' => $js_path . 'lib.selectable.js',
 			'store' => $js_path . 'lib.imagestore.js',
-			'formevents' => $js_path . 'formevents.js'
+			'formevents' => $js_path . 'formevents.js',
+			'formtest' => $js_path . 'formtester.js'
 		);
 
 		$resources_js = array(
-			194 => 'controller;server;selectable;store;formevents'
+			194 => 'controller;server;selectable;store;formevents;formtest'
 		);
 
 		if (in_array($r_id, array_keys($resources_js))) {
