@@ -9,7 +9,7 @@
 		private $requested_type;
 		private $response;
 
-		public function __construct($god_object) {
+		public function __construct(&$god_object) {
 			$this->god_object = $god_object;
 			if ($this->god_object->fileanalyzer instanceof glwFileAnalyzer) {
 				$this->analyzer = $this->god_object->fileanalyzer;
@@ -33,8 +33,6 @@
 					$this->requested_type = $type;
 				}
 			}
-
-			$this->god_object->log("Requested action upload; Assumed file type is " . $this->requested_type, 3);
 		}
 
 		public function upload() {
@@ -101,6 +99,8 @@
 			), $this->files);
 
 			$this->_upload($type, $make_preview);
+
+			return $this->response;
 		}
 
 
@@ -238,7 +238,7 @@
 		}
 
 
-		private function ya_init() {
+		public function ya_init() {
 
 		}
 

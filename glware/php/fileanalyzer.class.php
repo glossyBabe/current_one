@@ -3,7 +3,7 @@
 		var $god_object;
 		var $config = array();
 
-		public function __construct(glwGodObject $system) {
+		public function __construct(&$system) {
 			$this->god_object = $system;
 		}
 

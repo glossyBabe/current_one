@@ -2,6 +2,8 @@
 	class glwGodObject {
 	
 		private $action = '';
+		public $params = array();
+
 		public $work_dir = '';
 
 		public $fileuploader = false;
@@ -11,7 +13,7 @@
 		public $adminviewer = false;
 
 		private $log_level = 3;
-		private $table_prefix = '';
+		public $table_prefix = '';
 		private $database = '';
 
 		private $log_file_path = '';
@@ -42,6 +44,10 @@
 			$this->work_dir = $config['work_dir'] != '' ? ($config['work_dir'] . '/php') : dirname(__FILE__);
 			$this->log_file_path = $config['log_file_path'] != '' ? $config['log_level_path'] : (dirname(dirname($this->work_dir)) . '/log_file');
 			$this->table_prefix = $modx->config[xPDO::OPT_TABLE_PREFIX];
+
+			if (!empty($config['params'])) {
+				$this->params = $config['params'];
+			}
 
 			$dsn_parts = explode(';', $this->modx->config[xPDO::OPT_CONNECTIONS][0]['dsn']);
 			foreach ($dsn_parts as $part) {
@@ -88,14 +94,14 @@
 			$class_path = $class_name = '';
 			$installed = false;
 
-			$result = $this->modx->query("SELECT * FROM information_schema.table WHERE "
-			. "TABLE_SCHEMA = " . $this->database . " AND TABLE_NAME = "
-			. $this->table_prefix . "nomination_list");
+			$result = $this->modx->query("SELECT * FROM information_schema.tables WHERE "
+			. "TABLE_SCHEMA = '" . $this->database . "' AND TABLE_NAME = '"
+			. $this->table_prefix . "nomination_list'");
 	
-			if (!empty($result)) {
+			if (is_object($result)) {
 				$result = $this->modx->query("SELECT * FROM " . $this->table_prefix . "nomination_list");
 
-				if (!empty($result)) {
+				if ($result->fetch(PDO::FETCH_ASSOC)) {
 					$installed = true;
 				}
 			}
@@ -186,9 +192,14 @@
 
 			switch ($this->action) {
 				case 'request':
-					if ($this->config['mode'] != 'slave') {
-						return array('errors' => 'Error occured; wrong query use');
-					}
+
+					include_once $this->work_dir . "/fileuploader.class.php";
+					include_once $this->work_dir . "/formprocessor.class.php";
+
+					$this->formprocessor = new glwFormProcessor($this);
+					$this->fileuploader = new glwFileUploader($this);
+
+					$output = $this->formprocessor->create_request();
 
 					break;
 				case 'load':
@@ -198,13 +209,17 @@
 
 					$this->fileanalyzer = new glwFileAnalyzer($this);
 					$this->fileuploader = new glwFileUploader($this);
-		
+
 					$output = $this->fileuploader->upload();
 
 					break;
 
 				case 'vote':
 
+					include_once $this->work_dir . "/formprocessor.class.php";
+
+					$this->formprocessor = new glwFormProcessor($this);
+					$output = $this->formprocessor->vote();
 	
 			}
 			

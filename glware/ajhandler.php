@@ -2,21 +2,20 @@
 
 	// this handler also may be included in snippet or plugin
 	$mode = 'full';
-
-	if (isset($modx) && $modx instanceof $modx) {
-		$mode = 'scripts';
-	} else {
+	if (!isset($modx) || !($modx instanceof $modx)) {
 		define('MODX_API_MODE', true);
 		require_once  $_SERVER['DOCUMENT_ROOT'] . "/index.php";
 
 		$modx->getService("error", "error.modError");
 		$modx->setLogLevel(modX::LOG_LEVEL_INFO);
 		$modx->setLogTarget(XPDO_CLI_MODE ? "ECHO" : "HTML");
+	} else {
+		$mode = 'slave';
 	}
 
 	// since code being loaded anytime when onbeforeclientscript fired we need
 	// method for preventing full initialization, but we steel need our scripts
-	if ($mode == 'scripts' && $modx->event->name == 'OnBeforeRegisterClientScripts') {
+	if ($modx->event->name == 'OnBeforeRegisterClientScripts') {
 		$r_id = $modx->resource->get('id');
 
 		$js_path = '/third_party/glware/js/';
@@ -31,6 +30,7 @@
 
 		$resources_js = array(
 			194 => 'controller;server;selectable;store;formevents;formtest'
+	//		194 => 'controller;server;selectable;store;formevents'
 		);
 
 		if (in_array($r_id, array_keys($resources_js))) {
@@ -42,9 +42,7 @@
 
 			$modx->log(modx_log_level_error, "glw: scripts included: " . $resources_js[$r_id]);
 		}
-	}
-
-	if ($mode == 'full') {
+	} else {
 		$root_path = MODX_BASE_PATH;
 		$work_dir = $root_path . 'third_party/glware';
 		
@@ -58,11 +56,22 @@
 		if ($glw_action) {
 			$glw_action = preg_replace('/[^a-z_]*/i', '', strtolower($glw_action));
 
-			$controller = new glwGodObject($modx, array(
+			$ops = array(	
 				'work_dir' => $work_dir,
 				'action' => $glw_action,
-				'mode' => $output_mode
-			));
+				'mode' => $output_mode,
+				'params' => array()
+			);
+	
+			if (!empty($glw_nominations)) {
+				$ops['params']['nominations'] = $glw_nominations;
+			}
+
+			if (!empty($glw_hash)) {
+				$ops['params']['hash'] = $glw_hash;
+			}
+				
+			$controller = new glwGodObject($modx, $ops);
 
 			if (!($casuality = $controller->init())) {
 				$response = $controller->handle();
@@ -71,5 +80,9 @@
 			$response = array('success' => false, 'info' => 'unknown request');
 		}
 
-		echo json_encode($response);
+		if ($mode == 'slave') {
+			$_resp = $response;
+		} else {
+			echo json_encode($response);
+		}
 	}
