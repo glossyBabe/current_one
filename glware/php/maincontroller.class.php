@@ -58,6 +58,7 @@
 			}
 					
 			$this->action = array_key_exists('action', $config) ? $config['action'] : '';
+			$this->log("Action registered - " . $this->action);
 		}
 
 
@@ -200,8 +201,8 @@
 					$this->fileuploader = new glwFileUploader($this);
 
 					$output = $this->formprocessor->create_request();
-
 					break;
+
 				case 'load':
 	
 					include_once $this->work_dir . "/fileuploader.class.php";
@@ -211,7 +212,14 @@
 					$this->fileuploader = new glwFileUploader($this);
 
 					$output = $this->fileuploader->upload();
+					break;
 
+				case 'vote_table':
+					
+					include_once $this->work_dir . "/formprocessor.class.php";
+					
+					$this->formprocessor = new glwFormProcessor($this);
+					$output = $this->formprocessor->get_table('judge_voting');
 					break;
 
 				case 'vote':

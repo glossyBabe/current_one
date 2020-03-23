@@ -13,6 +13,52 @@
 
 		}
 
+		public function get_table($table_name) {
+			$output = array();
+
+			switch ($table_name) {
+				case 'judge_voting':
+					$output = array(
+						array(
+							'nominants' => array('Участник 1', 'Участник 2', 'Участник 3', 'Участник 4', 'Участник 5'),
+							'info' => 'Номинация 1'
+						),
+						array(
+							'nominants' => array('Участник 1', 'Участник 2', 'Участник 3', 'Участник 4', 'Участник 5'),
+							'info' => 'Номинация 2'
+						),
+						array(
+							'nominants' => array('Участник 1', 'Участник 2', 'Участник 3', 'Участник 4', 'Участник 5'),
+							'info' => 'Номинация 3'
+						),
+						array(
+							'nominants' => array('Участник 1', 'Участник 2', 'Участник 3', 'Участник 4', 'Участник 5'),
+							'info' => 'Номинация 4'
+						)
+					);
+					break;
+
+				case 'judge_activity':
+					$output = array(
+
+					);
+					break;
+
+				case 'attendee_list':
+					$output = array(
+
+					);
+					break;
+
+				case 'nominations':
+					$output = array(
+
+					);
+			}
+	
+			return $output;
+		}
+
 		public function create_request() {
 			$success = false;
 			$valid_codes = array();

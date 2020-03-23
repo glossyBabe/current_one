@@ -238,12 +238,12 @@
 		}
 
 
-		public function ya_init() {
+		private function ya_init() {
 
 		}
 
 
-		private function _ya_upload() {
+		public function _ya_upload() {
 			$this->ya_init();
 
 			
