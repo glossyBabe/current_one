@@ -38,21 +38,42 @@
 					);
 					break;
 
-				case 'judge_activity':
+				case 'request_table':
 					$output = array(
-
+						array('name' => 'Конкурсант 1', 'anket' => false, 'presentation' => false, 'press' => false, 'manager_photo' => 'dsf', 'gallery' => 'sdf', 'logo' => 'sdf'),
+						array('name' => 'Конкурсант 2', 'anket' => 'sdf', 'presentation' => 'df', 'press' => 'dsf', 'manager_photo' => 'dsf', 'gallery' => 'sdf', 'logo' => 'sdf'),
+						array('name' => 'Конкурсант 3', 'anket' => false, 'presentation' => false, 'press' => false, 'manager_photo' => false, 'gallery' => false, 'logo' => false)
 					);
 					break;
 
-				case 'attendee_list':
+				case 'judges_activity':
 					$output = array(
-
+						array('judge_name' => 'Судья 1', 'person' => 'Борец Виктор Астафьевич', 'voted' => false),
+						array('judge_name' => 'Судья 2', 'person' => 'Николай Скороходов', 'voted' => true),
+						array('judge_name' => 'Судья 3', 'person' => 'Пантон Саврасов', 'voted' => ''),
+						array('judge_name' => 'Судья 4', 'person' => 'Геннадий Старопорохов', 'voted' => true),
+						array('judge_name' => 'Судья 5', 'person' => '', 'voted' => true)
 					);
 					break;
 
-				case 'nominations':
+				case 'voting_summary':
 					$output = array(
-
+						array(
+							'info' => 'Номинация 1',
+							'children' => array(
+								array('name' => 'Конкурсант 2', 'score' => 8, 'voters' => 'Судья 1, Судья 4, Судья 5'),
+								array('name' => 'Конкурсант 5', 'score' => 4, 'voters' => 'Судья 2, Судья 3, Судья 7'),
+								array('name' => 'Конкурсант 6', 'score' => 2, 'voters' => 'Судья 6, Судья 8')
+							)
+						),
+						array(
+							'info' => 'Номинация 2',
+							'children' => array(
+								array('name' => 'Конкурсант 1', 'score' => 7, 'voters' => 'Судья 1, Судья 2, Судья 5'),
+								array('name' => 'Конкурсант 4', 'score' => 1, 'voters' => 'Судья 2, Судья 5'),
+								array('name' => 'Конкурсант 5', 'score' => 1, 'voters' => 'Судья 8')
+							)
+						)
 					);
 			}
 	

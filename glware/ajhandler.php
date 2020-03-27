@@ -55,7 +55,7 @@
 
 		if ($glw_action) {
 			$glw_action = preg_replace('/[^a-z_]*/i', '', strtolower($glw_action));
-
+			
 			$ops = array(	
 				'work_dir' => $work_dir,
 				'action' => $glw_action,

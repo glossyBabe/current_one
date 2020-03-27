@@ -191,42 +191,31 @@
 		public function handle() {
 			$output = array();
 
+			include_once $this->work_dir . "/formprocessor.class.php";
+			include_once $this->work_dir . "/fileuploader.class.php";
+			include_once $this->work_dir . "/fileanalyzer.class.php";
+
+			$this->formprocessor = new glwFormProcessor($this);
+			$this->fileuploader = new glwFileUploader($this);
+			$this->fileanalyzer = new glwFileAnalyzer($this);
+
 			switch ($this->action) {
 				case 'request':
-
-					include_once $this->work_dir . "/fileuploader.class.php";
-					include_once $this->work_dir . "/formprocessor.class.php";
-
-					$this->formprocessor = new glwFormProcessor($this);
-					$this->fileuploader = new glwFileUploader($this);
-
 					$output = $this->formprocessor->create_request();
 					break;
 
 				case 'load':
-	
-					include_once $this->work_dir . "/fileuploader.class.php";
-					include_once $this->work_dir . "/fileanalyzer.class.php";
-
-					$this->fileanalyzer = new glwFileAnalyzer($this);
-					$this->fileuploader = new glwFileUploader($this);
-
 					$output = $this->fileuploader->upload();
 					break;
 
-				case 'vote_table':
-					
-					include_once $this->work_dir . "/formprocessor.class.php";
-					
-					$this->formprocessor = new glwFormProcessor($this);
-					$output = $this->formprocessor->get_table('judge_voting');
-					break;
+				case 'request_table':
+				case 'judge_voting':
+				case 'judges_activity':
+				case 'voting_summary':
+					$output = $this->formprocessor->get_table($this->action);
+					break;				
 
 				case 'vote':
-
-					include_once $this->work_dir . "/formprocessor.class.php";
-
-					$this->formprocessor = new glwFormProcessor($this);
 					$output = $this->formprocessor->vote();
 	
 			}
