@@ -218,6 +218,11 @@
 				case 'vote':
 					$output = $this->formprocessor->vote();
 	
+				case 'chat':
+					include_once $this->work_dir . "/chatbackend.class.php";
+					$this->chat = new glwChatBackend($this);
+
+					$output = $this->chat->run();
 			}
 			
 			$this->log_flush();

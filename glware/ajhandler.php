@@ -70,7 +70,7 @@
 			if (!empty($glw_hash)) {
 				$ops['params']['hash'] = $glw_hash;
 			}
-				
+
 			$controller = new glwGodObject($modx, $ops);
 
 			if (!($casuality = $controller->init())) {
