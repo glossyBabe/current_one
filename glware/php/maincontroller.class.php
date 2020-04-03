@@ -91,15 +91,18 @@
 		}
 
 
+		public function table_exists($table_name) {
+			return is_object($this->modx->query("SELECT * FROM information_schema.tables WHERE "
+			. "TABLE_SCHEMA = '" . $this->database . "' AND TABLE_NAME = '"
+			. $this->table_prefix . "{$table_name}'"));
+		}
+
+
 		public function init() {
 			$class_path = $class_name = '';
 			$installed = false;
 
-			$result = $this->modx->query("SELECT * FROM information_schema.tables WHERE "
-			. "TABLE_SCHEMA = '" . $this->database . "' AND TABLE_NAME = '"
-			. $this->table_prefix . "nomination_list'");
-	
-			if (is_object($result)) {
+			if ($this->table_exists('nomination_list')) {
 				$result = $this->modx->query("SELECT * FROM " . $this->table_prefix . "nomination_list");
 
 				if ($result->fetch(PDO::FETCH_ASSOC)) {
