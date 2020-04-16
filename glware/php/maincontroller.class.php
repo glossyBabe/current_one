@@ -19,7 +19,7 @@
 		private $log_file_path = '';
 		private $log_events = array();
 
-		private $cant_create_table = 1005;
+		public $cant_create_table = 1005;
 		private $nominations = array(
 			'national_sell' => array('public_name' => "Национальная торговая компания", "public" => true),
 			'national_production' => array('public_name' => "Национальная производственная компания", "public" => true),
@@ -51,7 +51,7 @@
 
 			$dsn_parts = explode(';', $this->modx->config[xPDO::OPT_CONNECTIONS][0]['dsn']);
 			foreach ($dsn_parts as $part) {
-				if (strpos('dbname', $part) !== FALSE) {
+				if (strpos($part, 'dbname') !== FALSE) {
 					$left_right = explode('=', $part);
 					$this->database = $left_right[1];
 				}	
@@ -92,9 +92,13 @@
 
 
 		public function table_exists($table_name) {
-			return is_object($this->modx->query("SELECT * FROM information_schema.tables WHERE "
-			. "TABLE_SCHEMA = '" . $this->database . "' AND TABLE_NAME = '"
-			. $this->table_prefix . "{$table_name}'"));
+			$res = $this->modx->query("select * from information_schema.tables where "
+			. "table_schema = '" . $this->database . "' and table_name = '"
+			. $this->table_prefix . "{$table_name}'");
+			
+			$res = is_object($res) ? $res->fetch(PDO::FETCH_ASSOC) : false;
+			
+			return (boolean)$res;
 		}
 
 
@@ -220,12 +224,14 @@
 
 				case 'vote':
 					$output = $this->formprocessor->vote();
-	
+					break;
+
 				case 'chat':
 					include_once $this->work_dir . "/chatbackend.class.php";
 					$this->chat = new glwChatBackend($this);
 
 					$output = $this->chat->run();
+					break;
 			}
 			
 			$this->log_flush();

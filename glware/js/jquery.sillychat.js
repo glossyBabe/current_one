@@ -6,7 +6,9 @@ console.log('Изменения повторно получены');
 	$.fn['sillychat'] = function(options) {
 
 		//css-классы контролов
-		var textField     = '.' + options.textField     || null,
+		var features = {},
+
+			textField     = '.' + options.textField     || null,
 			userList      = '.' + options.userList      || null,
 			messagesBlock = '.' + options.messagesBlock || null,
 			enabler       = '.' + options.enabler       || null,
@@ -15,11 +17,30 @@ console.log('Изменения повторно получены');
 
 		//ссылки на контролы
 			controlTextField      = $(textField),
-			controlUserList       = $(userList),
 			controlMessagesPanel  = $(messagesBlock),
-			controlEnabler        = $(enabler),
 			controlSendButton     = $(sendButton),
-			controlNameField      = $(nameField),
+			controlUserList, controlEnabler, controlNameField;
+
+		if (userList) {
+			controlUserList = $(userList),
+			features['userList'] = true;
+		} else {
+			features['userList'] = false;
+		}
+
+		if (controlEnabler) {
+			controlEnabler = $(enabler),
+			features['enabler'] = true;
+		} else {
+			features['enabler'] = false;
+		}
+
+		if (nameField) {
+			controlNameField = $(nameField),
+			features['nameField'] = true;
+		} else {
+			features['nameField'] = false;
+		}
 
 		//служебные
 			requestedName   = null,
@@ -30,9 +51,7 @@ console.log('Изменения повторно получены');
 			timeout         = 2500,
 			phpPath         = '/third_party/glware/ajhandler.php',
 			
-			someControlLost = (controlTextField.length == 0 || controlUserList.length == 0 ||
-				controlMessagesPanel.length == 0 || controlEnabler.length == 0 || controlSendButton.length == 0 ||
-				controlNameField.length == 0),
+			someControlLost = (controlTextField.length == 0 || controlMessagesPanel.length == 0 || controlSendButton.length == 0),
 			online = null;
 			
 			var modxName = $('h4.username_for_chat').text();
@@ -40,16 +59,17 @@ console.log('Изменения повторно получены');
 
 		if (someControlLost) {			
 			console.log({
-				text: controlTextField,
-				userlist: controlUserList,
-				msgs: controlMessagesPanel,
-				onliner: controlEnabler,
-				sender: controlSendButton,
-				namef: controlNameField
+				text: controlTextField.length,
+				userlist: controlUserList.length,
+				msgs: controlMessagesPanel.length,
+				onliner: controlEnabler.length,
+				sender: controlSendButton.length,
+				namef: controlNameField.length
 				});
 			throw new Error('Can\'t run the app: required html-parts were not found;\n');
+		} else {
+			controlMessagesPanel.html(false);
 		}
-
 
 		// коллбеки для обработки событий
 		var callbacks = {
@@ -68,15 +88,11 @@ console.log('Изменения повторно получены');
 			netStatusChange: function() {
 				switch (controlEnabler.val()) {
 					case 'offline':
-						//console.log(session);
-
 						destroySession();						
 
 						break;
 
 					case 'online':
-						//console.log(session);
-
 						openSession();
 						
 				}
@@ -90,21 +106,27 @@ console.log('Изменения повторно получены');
 				var decoded = JSON.parse(data);
 				
 				if (decoded.got) {
-					
-					requestedName = null;
-					controlNameField.attr('disabled', true);
-					controlNameField.val(decoded.you);
+					if (features['nameField']) {
+						requestedName = null;
+						controlNameField.attr('disabled', true);
+						controlNameField.val(decoded.you);
+					}
 
 					nick              = decoded.you;
 					sessionExists     = true;
 					session['create'] = false;
-					controlEnabler.val('online');
+					if (features['enabler']) {
+						controlEnabler.val('online');
+					}
 
 					callbacks.refresh(decoded);
 				} else {
 					clearInterval(online);
 					online = null;
-					controlNameField.attr('disabled', false);
+
+					if (features['nameField']) {
+						controlNameField.attr('disabled', false);
+					}
 					
 					putMessageLocal({
 						text: 'Нет соединения. Для того, чтобы войти в чат, введите имя и нажмите Enter.',
@@ -122,13 +144,18 @@ console.log('Изменения повторно получены');
 					var decoded = JSON.parse(data);		
 
 					if (decoded.deleted) {
-						controlNameField.attr('disabled', false);
+						if (features['nameField']) {
+							controlNameField.attr('disabled', false);
+						}
 
 						nick              = null;
 						online            = null;
 						sessionExists     = false;
 						session['delete'] = false;
-						controlEnabler.val('offline');
+	
+						if (features['enabler']) {
+							controlEnabler.val('offline');
+						}
 					}
 
 			},
@@ -140,14 +167,15 @@ console.log('Изменения повторно получены');
 						putMessageLocal({
 							text: serverdata.messages[i]['message_text'],
 							nick: serverdata.messages[i]['username'] == 'Guest' ? 'Guest' + serverdata.messages[i]['id'] : serverdata.messages[i]['username'],
-							date: serverdata.messages[i]['date']
+							date: serverdata.messages[i]['date'],
+							admin: serverdata.messages[i]['admin'] == 1
 						});
 					}
 
 					controlMessagesPanel[0].scrollTop += i * 50;
 				}
 
-				if (serverdata.userlist != null) {
+				if (features['userList'] && serverdata.userlist != null) {
 					var userlistStr = '';
 
 					for (var i = 0, n = serverdata.userlist.length; i < n; ++i) {
@@ -172,35 +200,38 @@ console.log('Изменения повторно получены');
 			}
 		}
 
-		controlEnabler.val('offline');
-		controlEnabler.hide();
+		if (features['enabler']) {
+			controlEnabler.val('offline');
+			controlEnabler.hide();
 
-		//controlColors.on('change', callbacks.colorize);
-		controlEnabler.on('change', callbacks.netStatusChange);
+			//controlColors.on('change', callbacks.colorize);
+			controlEnabler.on('change', callbacks.netStatusChange);
+		} else {
+			openSession();
+		}
+		
+		if (features['nameField']) {
+			controlNameField.on('keypress', function(e) {
+				var code = e.keyCode || e.which;
+				if (code == 13) {
+					e.preventDefault();
+
+					if (controlEnabler.val() == 'offline') {
+						//console.log(session);
+						controlEnabler.val('online');
+						openSession();
+
+					}
+				}
+			});
+		}
+
 		controlSendButton.on('click', function(e) {
 			e.preventDefault();
 			callbacks.send();
 		});
-		
-		openSession();
-
-		controlNameField.on('keypress', function(e) {
-			var code = e.keyCode || e.which;
-			if (code == 13) {
-				e.preventDefault();
-
-				if (controlEnabler.val() == 'offline') {
-					//console.log(session);
-					console.log('activate!');
-					controlEnabler.val('online');
-					openSession();
-
-				}
-			}
-		});
-		
+	
 		controlTextField.on('keypress', function(e) {
-			console.log('yes, key pressed');
 			var code = e.keyCode || e.which;
 			if (code == 13) {
 				e.preventDefault();
@@ -215,10 +246,6 @@ console.log('Изменения повторно получены');
 		
 		// чат проверяет, что обновилось
 		function ping() {			
-			
-			console.log(session['create']);
-
-			console.log(session['delete']);
 			if (session['create'] && !session['delete']) {
 				$.post(phpPath, {
 
@@ -296,17 +323,32 @@ console.log('Изменения повторно получены');
 		}
 
 		function putMessageLocal(message) {
+			var el, first, messageBlock, div;
+
 			if (message.date != '' && message.text != '' && message.nick) {
 				/*controlMessagesPanel.append("<div class='sillychat_messagecontainer'>" +
 					"<div class='sillychat_timeclass'>" + message.date + "</div>" +
 					"<div class='sillychat_nickclass'>" + message.nick + "</div>" +
 					"<div class='sillychat_messagetext'>" + message.text + "</div>" +
 				"</div>");*/
-				controlMessagesPanel.append("<div class='sillychat_messagecontainer'>" +
-					'[' + message.date + '] ' + '<b>' + message.nick + '</b>: ' + message.text +
-				"</div>");
+				div = document.createElement('div');
 
-				controlMessagesPanel[0].scrollTop += 7000;
+				messageBlock = message.admin
+					? "<p class='judge_chat_admin'>" + '[' + message.date + "] <strong>Администратор:</strong> " + message.text + "<p>"
+					: "<p class='judge_chat_user'>" + '[' + message.date + "] <strong>" + message.nick + ":</strong> " + message.text + "</p>";
+				div.innerHTML = messageBlock;
+				div.setAttribute('class', 'sillychat_messagecontainer first_message');
+				
+				first = controlMessagesPanel.find('.first_message').first();
+
+				if (first.length == 0) {
+					controlMessagesPanel.append(div);
+				} else {
+					controlMessagesPanel[0].insertBefore(div, first[0]);
+					first.removeClass('first_message');
+				}
+
+				//controlMessagesPanel[0].scrollTop += 7000;
 			}
 		}
 
@@ -332,7 +374,7 @@ console.log('Изменения повторно получены');
 		function openSession() {
 		
 			if (!online) {
-				if (controlNameField.val() != '') {
+				if (features['nameField'] && controlNameField.val() != '') {
 					requestedName = controlNameField.val();
 					controlNameField.attr('disabled', true);
 				}
