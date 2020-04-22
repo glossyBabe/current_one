@@ -43,7 +43,7 @@
 
 			$this->work_dir = $config['work_dir'] != '' ? ($config['work_dir'] . '/php') : dirname(__FILE__);
 			$this->log_file_path = $config['log_file_path'] != '' ? $config['log_level_path'] : (dirname(dirname($this->work_dir)) . '/log_file');
-			$this->table_prefix = $modx->config[xPDO::OPT_TABLE_PREFIX];
+			$this->table_prefix = $modx->config[xPDO::OPT_TABLE_PREFIX] . "glw_";
 
 			if (!empty($config['params'])) {
 				$this->params = $config['params'];
@@ -166,11 +166,17 @@
 			)";
 			$create_voting_table = "CREATE table IF NOT EXISTS {$tp}voting_results (
 				id INT AUTO_INCREMENT,
-				judge_id INT NOT NULL,
+				process_id INT NOT NULL,
 				request_id INT NOT NULL,
 				nomination_id INT NOT NULL,
-				score TINYINT NULL,
+				PRIMARY KEY (id)
+			)";
+
+			$create_voting2_table = "CREATE table IF NOT EXISTS {$tp}voting_process (
+				id INT AUTO_INCREMENT,
+				judge_id INT NOT NULL,
 				year VARCHAR(4) NOT NULL,
+				person_of_year VARCHAR (255) NULL,
 				PRIMARY KEY (id)
 			)";
 
@@ -191,6 +197,7 @@
 				$this->modx->query($create_request_table);
 				$this->modx->query($create_request_nominations_table);
 				$this->modx->query($create_voting_table);
+				$this->modx->query($create_voting2_table);
 			}
 		}
 
