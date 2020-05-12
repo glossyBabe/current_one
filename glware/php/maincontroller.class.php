@@ -210,16 +210,20 @@
 			include_once $this->work_dir . "/fileanalyzer.class.php";
 
 			$this->formprocessor = new glwFormProcessor($this);
-			$this->fileuploader = new glwFileUploader($this);
 			$this->fileanalyzer = new glwFileAnalyzer($this);
+			$this->fileuploader = new glwFileUploader($this);
 
 			switch ($this->action) {
 				case 'request':
 					$output = $this->formprocessor->create_request();
 					break;
 
-				case 'load':
+				case 'files':
 					$output = $this->fileuploader->upload();
+					break;
+
+				case 'get_gallery':
+					$output = array();
 					break;
 
 				case 'request_table':

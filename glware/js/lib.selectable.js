@@ -86,14 +86,19 @@
 	};
 
 	
-	fhSelectable.prototype.unsubscribe = function(elem) {
-		for (var i = 0, n = this.selected.length; i < n; ++i) {
-			this.selected[i].select.remove();
-			this.selected[i].container.remove();
-			this.store.splice(i, 1);
+	fhSelectable.prototype.unsubscribe = function(name) {
+		var elem = this.findInStore('name', name);
+		console.log('selectable store', this.store);
+		console.log('element for unsubscribing', elem);
+		if (elem != undefined && elem.name == name) {
+			elem.select.remove();
+			elem.container.remove();
 		}
 	
-		this.selected = [];
+		console.log('store after unsubscribing', this.store);
+
+		delete this.store[elem.index];
+		this.reindex();
 	};
 
 	
@@ -135,6 +140,8 @@
 	
 	fhSelectable.prototype.unselect = function(elem) {
 		var selected = this.selected;
+
+		console.log("unselected", elem);
 		
 		if (!elem) {
 			return;

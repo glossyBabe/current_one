@@ -1,121 +1,132 @@
 ;(function($){
 	if ($ != undefined) {
 		$(function() {
-			var server = new fhServer({
-				}),
-				store = new fhImageStore({
-					directoryPath: '/img/buffer/'
-				}),
-				selectable = store.selectable;
+			var submit = $('input[type^=submit]'),
+				presentationLoad = $('input[name^=presentation]'),
+				pressrelLoad = $('input[name^=pressrel]'),
+				logoLoad = $('input[name^=logo]'),
+				photoLoad = $('input[name^=photo]'),
 
-				selectFileLoop = 0,
-				button = $('input[name^=new_picture]'),
-				submit = $('input[type^=submit]'),
-				clicker = $('input[name^=clicker]'),
-				deleteButt = $('input[name^=delet]'),
+				hoverDelete = function() {
 
-				isFileSelected = (function() {
-					var lastFilename = '';
-
-					return function() {
-						var val = button.val();
-
-						if (lastFilename && val == lastFilename) {
-							//errorNotice(false);
-							//errorNotice('Attempting to load file twice');
-							return 'repeat';
-						}
-		
-						if (val) {
-							lastFilename = val;
-						}
-
-						return !!val;
-					};
-				})(),
-	
-				deleteReact = function() {
-					var selected = selectable.getSelected(), forRemoving = [];
-					for (var i = 0, n = selected.length; i < n; ++i) {
-						if (!selected[i]) {
-							continue;
-						}
-
-						forRemoving.push(selected[i].name);
-					}
-					store.remove(forRemoving);
-					server.listen(function(response) {
-						console.log('deleteReact got response', response);
-						if (response.deleted.length) {
-							store.mirror();
-						}
-					});
-
-					submit.click();
-					deleteButt.hide();
 				},
 
-				addReact = function() {
-					var result, fileSelected;
+				presentationSettings = {
+					id: 'presentation',
+					loadButton: presentationLoad,
+					clicker: presentationLoad.parent().find('input[name^=clicker]'),
+					submit: submit,
 
-					if (selectFileLoop) {
-						clearInterval(selectFileLoop);
-					}
-
-					selectFileLoop = setInterval(function() {
-						fileSelected = isFileSelected();
-
-						if (fileSelected && fileSelected != 'repeat') {
-							clearInterval(selectFileLoop);
-
-							server.listen(function(response) {
-								var images = [];
-
-								for (var i = 0, n = response.errors.length; i < n; ++i) {
-									err = response.errors[i];
-
-									if (!err) {
-										continue;	
-									}
-
-									errorNotice(err);
-								}
-
-								for (var i = 0, n = response.loaded.length; i < n; ++i) {
-									images.push(response.loaded[i]);
-								}
-
-								store.add(images);
-								console.log('addReact callback ends, store updated', images);
-							});
-	
-							submit.click();
+					deleteReact: hoverDelete,
+					
+					store: {
+						preview: false,
+						limit: 1,
+						directoryPath: '/third_party/glware/images_buffer/',
+						gallery: presentationLoad.parent().parent().find('.file_loader_preview')
+					},
+					server: {
+						setupFormCallback: function(form, mode) {
+							if (mode == 'files') {
+								$(form).removeClass('ajax_form');
+							} else {
+								$(form).addClass('ajax_form');
+							}
 						}
-					}, 600);
-				},
-	
-				bindFilesending = (function() {
-					return function(but) {
-						but.on('click', function(e) {
-							addReact();
-						});
-
-						clicker.unbind().on('click', function(e) {
-							button.click();
-						});
 					}
-				})();
+				},
+				logoSettings = {
+					id: 'logo',
+					loadButton: logoLoad,
+					clicker: logoLoad.parent().find('input[name^=clicker]'),
+					submit: submit,
 
-			deleteButt.on('click', deleteReact);
+					deleteReact: hoverDelete,	
+	
+					store: {
+						limit: 1,
+						preview: 'pic',
+						directoryPath: '/third_party/glware/images_buffer/',
+						gallery: logoLoad.parent().parent().find('.file_loader_preview')
+					},
+					server: {
+						setupFormCallback: function(form, mode) {
+							if (mode == 'files') {
+								$(form).removeClass('ajax_form');
+							} else {
+								$(form).addClass('ajax_form');
+							}
+						}
+					}
+				},
+				photoSettings = {
+					id: 'photo_dir',
+					loadButton: photoLoad,
+					clicker: photoLoad.parent().find('input[name^=clicker]'),
+					submit: submit,
 
-			bindFilesending(button);
-			errorNotice(false);
+					deleteReact: hoverDelete,	
 
-			function errorNotice(msg) {
-				if (msg) {
-					console.error(msg);
+					store: {
+						limit: 1,
+						preview: 'pic',
+						directoryPath: '/third_party/glware/images_buffer/',
+						gallery: photoLoad.parent().parent().find('.file_loader_preview')
+					},
+					server: {
+						setupFormCallback: function(form, mode) {
+							if (mode == 'files') {
+								$(form).removeClass('ajax_form');
+							} else {
+								$(form).addClass('ajax_form');
+							}
+						}
+					}
+				},
+/*
+			pressSettings = {
+				store: {
+					directoryPath: '/third_party/glware/images_buffer/gallery/'
+				},
+				server: {
+					setupFormCallback: function(form, mode) {
+						if (mode == 'files') {
+							$(form).removeClass('ajax_form');
+						} else {
+							$(form).addClass('ajax_form');
+						}
+					}
 				}
-			}
+			},*/
+				gallerySettings = {
+					id: 'gallery',
+					loadButton: $('input[name^=new_picture]'),
+					submit: $('input[type^=submit]'),
+					clicker: $('input[name^=clicker]'),
+					notify: $('div#notify'),
+					deleteButton: $('input[name^=delet]'),
+
+					store: {
+						preview: 'pic',
+						directoryPath: '/third_party/glware/images_buffer/gallery/',
+						gallery: $('#pictures')
+					},
+					server: {
+						setupFormCallback: function(form, mode) {
+							if (mode == 'files') {
+								$(form).removeClass('ajax_form');
+							} else {
+								$(form).addClass('ajax_form');
+							}
+						}
+					}
+				},
+
+			gallery = new fhFileLoader(gallerySettings),
+			presentation = new fhFileLoader(presentationSettings);
+			logo = new fhFileLoader(logoSettings),
+			//press = new fhFileLoader(pressSettings),
+			photo = new fhFileLoader(photoSettings);
 		});
 	} else {
 		console.error('jQuery not found');

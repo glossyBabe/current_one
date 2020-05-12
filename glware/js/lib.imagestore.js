@@ -6,9 +6,11 @@
 			/* В результате рефакторинга появилась идея впредь
 			делать объект содержащий все эелементы, вроде как view,
 			чтобы отовсюду иметь доступ к кнопкам по именам без запросов */
-			deleteButton: $('input[name^=delet]'),
+			preview: settings.preview || 's_',
+			deleteButton: false,
 			preloadedId: settings.preloadedId || '#preload_pictures',
-			galleryId: settings.galleryId || '#pictures',
+			limit: settings.limit || 0,
+			gallery: settings.gallery,
 			containerClass: settings.containerClass || '',
 			containerStyle: 'float:left; position:relative; margin:20px; margin-top:15px;',
 		};
@@ -17,11 +19,13 @@
 
 		// каждая позиция в store это одна картинка вместе с ее полями и т.д
 		this.store = {};
+		this.limit = this.settings.limit;
+		this.loaded = 0;
 		this.form = $(document.forms[0]);
+		this.gallery = this.settings.gallery;
 
 		var that = this;
-
-		this.gallery = $(this.settings.galleryId);
+		console.log("STORE: ", this.gallery);
 
 		if (this.gallery.length == 0 || this.preloadedDiv.length == 0 || this.form.length == 0) {
 			console.error("FileHandler: Not consistent DOM for store working", 
@@ -35,7 +39,19 @@
 			this.selectable = new fhSelectable({
 				scope: this.gallery,
 				onClick: function(allSelected) {
-					if (allSelected.length) {
+					var somethingSelected = false;
+
+					if (!that.settings.deleteButton) {
+						that.settings.deleteButton = $(that.gallery.find("div[data-action^=remove]"));
+					}
+
+					for (var i = 0, n = allSelected.length; i < n; ++i) {
+						if (allSelected[i] != null) {
+							somethingSelected = true;
+						}
+					}
+
+					if (somethingSelected) {
 						that.settings.deleteButton.show();			
 					} else {
 						that.settings.deleteButton.hide();
@@ -51,13 +67,15 @@
 
 			for (var i = 0, n = children.length; i < n; ++i) {
 				curChild = children[i];
-				console.log(children[i]);
-				if (curChild && curChild.nodeName == 'INPUT') {
-					pics.push(curChild.value);
-//					this.store.push(this.nameTransform(curChild.value, 'path'));
-//					this.preloaded[this.nameTransform(curChild.value, 'safe')] = $(curChild);
+
+				if (curChild && curChild.nodeName != 'INPUT') {
+					continue;
 				}
 
+				pics.push(curChild.value);
+//				this.store.push(this.nameTransform(curChild.value, 'path'));
+//				this.preloaded[this.nameTransform(curChild.value, 'safe')] = $(curChild);
+//
 				this.add(pics);
 			}
 		}
@@ -76,13 +94,9 @@
 				}
 				
 			});
-			console.log('mirror starts');
-			console.log('preloads and sends', preloads, sends);
-			console.log('store at begining:', this.store);
 
 			for (var safeName in this.store) {
 				pic = this.store[safeName];
-				console.log('while mirroring', pic);
 
 				// грузим только если не грузили раньше,
 				// две переменных используется для команды удаления
@@ -90,24 +104,24 @@
 					forLoading.push(pic.path);
 				}
 
-				if (!pic.sendField && !sends[pic.safeName]) {
+				if (!pic.sendField && !sends[safeName]) {
 					field = document.createElement('INPUT'); 
 					field.type = 'hidden';
 					field.name = pic.safe;
 					field.value = 'yes';
 					this.store[safeName].sendField = $(field).appendTo(this.form);
 				} else if (pic.sendField == 'delete') {
-					sends[pic.safeName].remove();
+					sends[safeName].remove();
 				}
 
-				if (!pic.preloadField && !preloads[pic.safeName]) {
+				if (!pic.preloadField && !preloads[safeName]) {
 					field = document.createElement('INPUT'); 
 					field.type = 'hidden';
 					field.name = 'pic[]';
 					field.value = pic.safe;
 					this.store[safeName].preloadField = $(field).appendTo(this.preloadedDiv);
-				} else if (!pic.preloadField == 'delete') {
-					preloads[pic.safeName].remove();
+				} else if (pic.preloadField == 'delete') {
+					preloads[safeName].remove();
 				}
 			}
 
@@ -123,36 +137,52 @@
 		},
 
 		this.refreshGallery = function() {
-			var container = false, imgElement;
+			var container = false, imgElement, sp;
 
-			console.log('refreshGallery begin:', this.store);
 			for (var safeName in this.store) {
 				imgElement = this.store[safeName].loaded;
 
 				if (this.store[safeName].inGal == false && imgElement) {
-					container = document.createElement('div');			
-		
+					container = document.createElement('div');
 					if (this.settings.containerClass) {
 						container.class = this.settings.containerClass;
 					} else {
 						container.style = this.settings.containerStyle;
 					}
 
-					container.appendChild(imgElement);
-					
-					this.gallery.append(container);
-					this.selectable.subscribe(imgElement, safeName);
+					if (this.settings.preview == 'pic') {
+						container.appendChild(imgElement);
+						
+						this.gallery.append(container);
+						this.selectable.subscribe(imgElement, safeName);
+					} else {
+						sp = document.createElement("span");
+						sp.innerText = this.store[safeName].path;
+						container.appendChild(sp);
+						this.gallery.append(container);
+					}
+
 					this.store[safeName].inGal = true;
 				} else if (this.store[safeName].inGal == 'delete') {
+					if (this.selectable.selected.length) {
+						this.selectable.unsubscribe(safeName);
+					}
+
 					this.store[safeName].loaded.remove();
 					delete this.store[safeName];
 				}
 			}
 
-			this.selectable.unsubscribe();
 		};
 
 		this.getPreloaded();
+	}
+
+
+	fhImageStore.prototype.exists = function(filename) {
+		filename = filename.replace('C:\\fakepath\\', '');
+		console.log(filename);
+		return this.store[this.nameTransform(filename, 'safe')] != undefined;
 	}
 
 
@@ -166,7 +196,7 @@
 			if (!cur) {
 				continue;
 			}
-			
+
 			counter++;
 			
 			img = new Image();
@@ -195,7 +225,7 @@
 	fhImageStore.prototype.add = function(pics) {
 		var name, safeName;
 
-		if (pics.split != undefined && pics.substring != undefined) {
+		if (pics.substring != undefined && pics.split != undefined) {
 			pics = [pics];
 		}
 
@@ -212,6 +242,8 @@
 					inGal: false
 				};
 
+				this.loaded++;
+				console.log('loaded: ', this.loaded);
 			}
 		}
 
@@ -222,7 +254,6 @@
 
 	fhImageStore.prototype.remove = function(pics) {
 		var safeName = '';
-		console.log('image store removing: ', pics);
 
 		if (pics.split != undefined && pics.substring != undefined) {
 			pics = [pics];
@@ -235,6 +266,8 @@
 
 			this.store[safeName].preloadField = 'delete';
 			this.store[safeName].inGal = 'delete';
+
+			this.loaded--;
 		}
 	}
 

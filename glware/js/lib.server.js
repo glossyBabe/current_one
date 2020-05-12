@@ -3,53 +3,89 @@
 		this.settings = {
 			formSelector: settings.formSelector || 'form',
 		};
+		this.callbacks = {
+			'setupFormCallback': settings.setupFormCallback != undefined ? settings.setupFormCallback : false
+		};
+
 		this.iframe = false;
 		this.form = $(this.settings.formSelector)[0];
-		this.formHandlers = {
-			'file': '/third_party/glware/ajhandler.php?glw_action=load',
-			'default': this.form.getAttribute('action')
-		};
 		this.answer = '';
 		this.commandFlag = $(this.form).find('input[name^=command]');
+
+		this.setupForm = function(mode) {
+			var ret = false,
+				formRequisite = {
+					'files': {
+						'action': '/third_party/glware/ajhandler.php?glw_action=files',
+						'target': 'fileserver',
+						'enctype': 'multipart/form-data'
+					},
+					'default': {
+						'action': this.form.getAttribute('action'),
+						'target': '_self',
+						'enctype': 'application/x-www-form-urlencoded'
+					}
+				};
+
+			if (this.callbacks.setupFormCallback != undefined) {
+				ret = this.callbacks.setupFormCallback.call(this, this.form, mode);
+				if (ret != undefined && ret.action != undefined && ret.target != undefined && ret.enctype != undefined) {
+					formRequisite = ret;
+				}
+			}
+		
+			this.form.setAttribute('action', formRequisite[mode]['action']);
+			this.form.setAttribute('target', formRequisite[mode]['target']);
+			this.form.setAttribute('enctype', formRequisite[mode]['enctype']);
+		}
 		
 		this.parseDefaultAnswer = function(cb) {
 			var frstMarker, lstMarker, content,
 				start, end, mode, 
-				response = {images: [], errors: []},
-				answer = this.answer;
+				response = {loaded: [], deleted: [], errors: []},
+				answer = this.answer,
+				formatJson = true;
 
-			// maybe better to use json
-			if (answer.search(/\[loaded\]/) != -1) {
-				mode  = 'load';
-				start = new RegExp('\\[loaded\\]');
-				end   = new RegExp('\\[\\/loaded\\]');
-			} else if (this.answer.search(/\[deleted\]/) != -1) {
-				mode  = 'delete';
-				start = new RegExp('\\[deleted\\]');
-				end   = new RegExp('\\[\\/deleted\\]');
-			} else {
-				console.error('fileHandler: can\t parse server answer.');
-				return;
+			try {
+				jsonAnswer = JSON.parse(answer);
+			} catch (e) {
+				formatJson = false;
 			}
-			
-			console.log(mode, 'режим');
-			
-			frstMarker  = answer.search(start) - 1;
-			answer      = answer.replace(start, '');
-			lstMarker   = answer.search(end);
-			answer      = answer.replace(end, '');
-			content     = answer.substring(frstMarker, lstMarker);
-			parts       = (content.search(/\|/) != -1) ? content.split('|') : [content];
 
-			if (parts.length > 1) {
-				parts.shift();
+			if (formatJson) {
+				for (var category in jsonAnswer) {
+					parts = jsonAnswer[category];
+				}
+			} else {
+				if (answer.search(/\[loaded\]/) != -1) {
+					mode  = 'load';
+					start = new RegExp('\\[loaded\\]');
+					end   = new RegExp('\\[\\/loaded\\]');
+				} else if (this.answer.search(/\[deleted\]/) != -1) {
+					mode  = 'delete';
+					start = new RegExp('\\[deleted\\]');
+					end   = new RegExp('\\[\\/deleted\\]');
+				} else {
+					console.error('fileHandler: can\'t parse server answer.');
+					return;
+				}
+				
+				frstMarker  = answer.search(start) - 1;
+				answer      = answer.replace(start, '');
+				lstMarker   = answer.search(end);
+				answer      = answer.replace(end, '');
+				content     = answer.substring(frstMarker, lstMarker);
+				parts       = (content.search(/\|/) != -1) ? content.split('|') : [content];
 			}
 
 			for (var i = 0, n = parts.length; i < n; ++i) {
 				if (!parts[i]) {
 					continue;
 				}
-				category = mode == 'deleted' ? 'deleted' : 'loaded';
+
+				if (category == undefined || category == '') {
+					category = mode == 'deleted' ? 'deleted' : 'loaded';
+				}
 
 				console.log('parsing server answer', parts);
 				if (parts[i].search('error') == -1) {
@@ -65,10 +101,6 @@
 			} else {
 				console.log("FileHandler: Server got answer, but no callbacks was called");
 			}
-		}
-
-		this.formSwitch = function(mode) {
-
 		}
 
 
@@ -87,9 +119,7 @@
 			answ, loaded, parts, ifr, i, n, t;
 
 		// here we use 2 form handlers for different purposes
-		this.form.setAttribute('action', this.formHandlers['file']);
-		this.form.setAttribute('target', 'fileserver');
-		this.form.setAttribute('enctype', 'multipart/form-data');
+		this.setupForm('files');
 		this.commandFlag.val('files');
 
 		if (this.iframe.length) {
@@ -99,9 +129,7 @@
 					
 				if (answer.length > 1) {
 					server.answer = answer;
-					server.form.setAttribute('action', server.formHandlers['default']);
-					server.form.setAttribute('target', '_self');
-					server.form.setAttribute('enctype', 'application/x-www-form-urlencoded');
+					server.setupForm('default');
 					server.commandFlag.val('');
 
 					server.iframe.html(null);

@@ -7,7 +7,7 @@
 		require_once  $_SERVER['DOCUMENT_ROOT'] . "/index.php";
 
 		$modx->getService("error", "error.modError");
-		$modx->setLogLevel(modX::LOG_LEVEL_INFO);
+		$modx->setLogLevel(modX::LOG_LEVEL_FATAL);
 		$modx->setLogTarget(XPDO_CLI_MODE ? "ECHO" : "HTML");
 	} else {
 		$mode = 'slave';
