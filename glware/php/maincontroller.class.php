@@ -41,6 +41,12 @@
 		public function __construct($modx, $config) {
 			$this->modx = $modx;
 
+			$user = $modx->getUser();
+			$userGroup = $modx->getObject('modUserGroup', $user->get('primary_group'));
+			$userPrimaryGroup = $userGroup->get('name');
+			$profile = $modx->getObject('modUserProfile', array('internalkey' => $user->get('id')));
+			$this->current_user = array_merge($user->toArray(), $profile->toArray());
+
 			$this->work_dir = $config['work_dir'] != '' ? ($config['work_dir'] . '/php') : dirname(__FILE__);
 			$this->log_file_path = $config['log_file_path'] != '' ? $config['log_level_path'] : (dirname(dirname($this->work_dir)) . '/log_file');
 			$this->table_prefix = $modx->config[xPDO::OPT_TABLE_PREFIX] . "glw_";
@@ -214,6 +220,14 @@
 			$this->fileuploader = new glwFileUploader($this);
 
 			switch ($this->action) {
+				case 'ya_init':
+					$output = $this->fileuploader->ya_init();	
+					break;
+
+				case 'ya_receive':
+					$output = $this->fileuploader->ya_receive();
+					break;
+
 				case 'request':
 					$output = $this->formprocessor->create_request();
 					break;
@@ -243,6 +257,8 @@
 
 					$output = $this->chat->run();
 					break;
+				default:
+					$output = array("success" => false, "message" => "Invalid request");
 			}
 			
 			$this->log_flush();

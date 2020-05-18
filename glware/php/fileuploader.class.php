@@ -29,7 +29,6 @@
 			);
 
 			$this->distribute_files();
-			$this->god_object->log("FILES: " . print_r($_FILES, true));
 		}
 
 
@@ -302,15 +301,68 @@
 
 			return (boolean)$result;
 		}
+	
+
+		public function ya_init() {
+			$modx = $this->god_object->modx;
+	
+			$token_request = array();
+			$token = $modx->getOption("glware_yadisk_token", null, '');
+			$token_valid = false;
+
+			if ($token) {
+				$client = $modx->getService('rest', 'rest.modRest');
+				$headers = array("Authorization" => "OAuth AgAAAAAnABEvAADLWy3jnsVWHkwwqYv7vg6HWxg",
+							"Content-Type" => "application/json");
+				$result = $client->request('https://cloud-api.yandex.net:443', '/v1/disk', 'GET', array('headers' => $headers));
+				$this->god_object->log("EXISTING OAUTH TOKEN CHECK: " . print_r(array('result' => $result), true));
+			}
+			
+			if (!$token_valid) {
+				$id = $modx->getOption("glware_yadisk_client_id", null, '');
+				$secret = $modx->getOption("glware_yadisk_api_secret", null, '');
+				$state_token = 'glware_token_request:';
+				
+				$token_request = array(
+					'id' => $id,
+					'secret' => $secret,
+					'state_token' => md5($state_token . $this->current_user['sessionid'])
+				); //компоненты для построения ссылки, взятые из settings или пустой массив
+			}
+
+			return $token_request;
+		}
 
 
-		private function ya_init() {
+		public function ya_receive() {
+			$result = array();
+			$hash = md5('glware_token_request:' . $this->current_user['sessionid']);
+			if ($_GET['state'] == $hash) {
+				$modx = $this->god_object->modx;
+				$id = $modx->getOption("glware_yadisk_client_id", null, '');
+				$secret = $modx->getOption("glware_yadisk_api_secret", null, '');
 
+				$client = $modx->getService('rest', 'rest.modRest');
+				$headers = array("Content-type" => "application/x-www-form-urlencoded");
+
+				$response = $client->post('https://oauth.yandex.ru/token', array(
+					'client_id' => $id,
+					'secret' => $secret,
+					'grant_type' => 'authorization_code',
+					'code' => $_GET['code']
+				), array('headers' => $headers));
+				$this->god_object->log("Requested token response: " . print_r(array('result' => $response->process()), true));
+
+				// send code and get token then save it
+
+				$result = array('redirect' => true, 'url' => "http://rpgbb.ru/kabinet_administratora");
+			}
+			
+			return $result;
 		}
 
 
 		public function _ya_upload() {
-			$this->ya_init();
 
 			
 		}
