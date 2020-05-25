@@ -307,15 +307,18 @@
 			$modx = $this->god_object->modx;
 	
 			$token_request = array();
-			$token = $modx->getOption("glware_yadisk_token", null, '');
+			$setting = $modx->getObject("modSystemSetting", "glware_yadisk_token");
+			$token = $setting->get("value");
 			$token_valid = false;
 
 			if ($token) {
 				$client = $modx->getService('rest', 'rest.modRest');
-				$headers = array("Authorization" => "OAuth AgAAAAAnABEvAADLWy3jnsVWHkwwqYv7vg6HWxg",
+				$headers = array("Authorization" => "OAuth {$token}",
 							"Content-Type" => "application/json");
-				$result = $client->request('https://cloud-api.yandex.net:443', '/v1/disk', 'GET', array('headers' => $headers));
-				$this->god_object->log("EXISTING OAUTH TOKEN CHECK: " . print_r(array('result' => $result), true));
+				$result = $client->get('https://cloud-api.yandex.net:443/v1/disk', array(), $headers);
+				$result = $result->process();
+			//	$this->god_object->log("EXISTING OAUTH TOKEN CHECK: " . print_r(array('result' => $result->process(), 'token' => $token), true));
+				$token_valid = isset($result['max_file_size']) && isset($result['used_space']);
 			}
 			
 			if (!$token_valid) {
@@ -347,15 +350,19 @@
 
 				$response = $client->post('https://oauth.yandex.ru/token', array(
 					'client_id' => $id,
-					'secret' => $secret,
+					'client_secret' => $secret,
 					'grant_type' => 'authorization_code',
 					'code' => $_GET['code']
 				), array('headers' => $headers));
-				$this->god_object->log("Requested token response: " . print_r(array('result' => $response->process()), true));
 
-				// send code and get token then save it
+				$result = $response->process();
+				if ($result['token_type'] == 'bearer' && $result['access_token'] != '') {
+					$token = $modx->getObject('modSystemSetting', 'glware_yadisk_token');
+					$token->set('value', $result['access_token']);	
+					$token->save();
 
-				$result = array('redirect' => true, 'url' => "http://rpgbb.ru/kabinet_administratora");
+					$result = array('redirect' => true, 'url' => $modx->makeUrl(197, '', '', 'http'));
+				}
 			}
 			
 			return $result;

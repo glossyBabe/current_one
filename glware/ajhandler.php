@@ -53,5 +53,12 @@
 	if ($mode == 'slave') {
 		$_resp = $response;
 	} else {
-		echo json_encode($response);
+		if ($response['redirect'] && $response['url'] != '') {
+			$_GET = array();
+
+			header("Location: " . $response['url']);
+			exit;
+		} else {
+			echo json_encode($response);
+		}
 	}
