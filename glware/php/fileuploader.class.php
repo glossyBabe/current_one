@@ -4,16 +4,15 @@
 		private $god_object;
 		private $analyzer;
 
-		private $config;
+		public $config;
 		private $files;
 		private $requested_type;
 		private $response;
 
 		public function __construct(&$god_object) {
 			$this->god_object = $god_object;
-			if ($this->god_object->fileanalyzer instanceof glwFileAnalyzer) {
-				$this->analyzer = $this->god_object->fileanalyzer;
-			}
+			$this->god_object->load_component("fileanalyzer");
+			$this->analyzer = $this->god_object->fileanalyzer;
 
 			$this->config = array(
 				'prev_width' => 50,
@@ -22,7 +21,7 @@
 					'gallery' => 'new_picture',
 					'presentation' => 'presentation',
 					'photo' => 'photo',
-					'press_release' => 'pressrel',
+					'press_release' => 'pressrelease',
 					'logo' => 'logo'
 				),
 				'buffer' => dirname($this->god_object->work_dir) . '/images_buffer'
@@ -163,7 +162,7 @@
 		}
 
 
-		private function prepare_buffer() {
+		function prepare_buffer() {
 			$buf = $this->config['buffer'];
 			if (is_dir($buf)) {
 				if (is_dir($buf . '/gallery')) {
@@ -206,7 +205,6 @@
 
 
 		private function _upload($type, $preview = false) {
-			$this->prepare_buffer();
 			$path = $type == 'gallery' ? $this->config['buffer'] . '/gallery' : $this->config['buffer'];
 
 			/* todo: all security procedures before file loading */
@@ -296,81 +294,9 @@
 			}
 
 			if (!$result) {
-				$this->god_object->log("Error occured when attempting to resize this image; filename: " . $file['name'], 1);	
+				$this->god_object->log("Error occured when attempting to resize this image; filename: " . $file['name'], 1);
 			}
 
 			return (boolean)$result;
 		}
-	
-
-		public function ya_init() {
-			$modx = $this->god_object->modx;
-	
-			$token_request = array();
-			$setting = $modx->getObject("modSystemSetting", "glware_yadisk_token");
-			$token = $setting->get("value");
-			$token_valid = false;
-
-			if ($token) {
-				$client = $modx->getService('rest', 'rest.modRest');
-				$headers = array("Authorization" => "OAuth {$token}",
-							"Content-Type" => "application/json");
-				$result = $client->get('https://cloud-api.yandex.net:443/v1/disk', array(), $headers);
-				$result = $result->process();
-			//	$this->god_object->log("EXISTING OAUTH TOKEN CHECK: " . print_r(array('result' => $result->process(), 'token' => $token), true));
-				$token_valid = isset($result['max_file_size']) && isset($result['used_space']);
-			}
-			
-			if (!$token_valid) {
-				$id = $modx->getOption("glware_yadisk_client_id", null, '');
-				$secret = $modx->getOption("glware_yadisk_api_secret", null, '');
-				$state_token = 'glware_token_request:';
-				
-				$token_request = array(
-					'id' => $id,
-					'secret' => $secret,
-					'state_token' => md5($state_token . $this->current_user['sessionid'])
-				); //компоненты для построения ссылки, взятые из settings или пустой массив
-			}
-
-			return $token_request;
-		}
-
-
-		public function ya_receive() {
-			$result = array();
-			$hash = md5('glware_token_request:' . $this->current_user['sessionid']);
-			if ($_GET['state'] == $hash) {
-				$modx = $this->god_object->modx;
-				$id = $modx->getOption("glware_yadisk_client_id", null, '');
-				$secret = $modx->getOption("glware_yadisk_api_secret", null, '');
-
-				$client = $modx->getService('rest', 'rest.modRest');
-				$headers = array("Content-type" => "application/x-www-form-urlencoded");
-
-				$response = $client->post('https://oauth.yandex.ru/token', array(
-					'client_id' => $id,
-					'client_secret' => $secret,
-					'grant_type' => 'authorization_code',
-					'code' => $_GET['code']
-				), array('headers' => $headers));
-
-				$result = $response->process();
-				if ($result['token_type'] == 'bearer' && $result['access_token'] != '') {
-					$token = $modx->getObject('modSystemSetting', 'glware_yadisk_token');
-					$token->set('value', $result['access_token']);	
-					$token->save();
-
-					$result = array('redirect' => true, 'url' => $modx->makeUrl(197, '', '', 'http'));
-				}
-			}
-			
-			return $result;
-		}
-
-
-		public function _ya_upload() {
-
-			
-		}
-	}
+}

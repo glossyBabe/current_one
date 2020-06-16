@@ -56,22 +56,22 @@
 		}
 
 		private function is_ai($file) {
-			return false;
-		}
-
-		private function is_ptx($file) {
-			return false;
+			$last_part = array_pop(explode('.', $file['name']));
+			return strtolower($last_part) == 'ai' ? 'ai' : false;
 		}
 
 		private function is_pptx($file) {
-			return false;
+			$last_part = array_pop(explode('.', $file['name']));
+			return strtolower($last_part) == 'ppt' ? 'ppt' : false;
 		}
 
-		private function is_doc() {
-			return false;
+		private function is_doc($file) {
+			$last_part = array_pop(explode('.', $file['name']));
+			return strtolower($last_part) == 'doc' ? 'doc' : false;
 		}
 
-		private function is_docx() {
-			return false;
+		private function is_docx($file) {
+			$last_part = array_pop(explode('.', $file['name']));
+			return strtolower($last_part) == 'docx' ? 'docx' : false;
 		}
 	}

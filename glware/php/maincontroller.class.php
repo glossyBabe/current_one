@@ -6,11 +6,15 @@
 
 		public $work_dir = '';
 
+		public $current_user = false;
 		public $fileuploader = false;
 		public $fileanalyzer = false;
 		public $chatbackend = false;
 		public $formprocessor = false;
+		public $yahelper = false;
 		public $adminviewer = false;
+
+		public $yadisk_links_cache = array();
 
 		private $log_level = 3;
 		public $table_prefix = '';
@@ -32,6 +36,31 @@
 			'privatelabel' => array('public_name' => "Частная торговая марка (Коллекция)", "public" => true),
 			'service' => array('public_name' => "Частная торговая марка (Коллекция)", "public" => true),
 			'jury_selected' => array('public_name' => "Выбран жюри", 'public' => false)
+		);
+
+		private $components_info = array(
+			"yahelper" => array(
+				"filename" => "yahelper.class.php",
+				"classname" => "glwYaHelper",
+				"propertyname" => "yahelper"
+			),
+			"formprocessor" => array(
+				"filename" => "formprocessor.class.php",
+				"classname" => "glwFormProcessor",
+				"propertyname" => "formprocessor"
+
+			),
+			"fileuploader" => array(
+				"filename" => "fileuploader.class.php",
+				"classname" => "glwFileUploader",
+				"propertyname" => "fileuploader"
+
+			),
+			"fileanalyzer" => array(
+				"filename" => "fileanalyzer.class.php",
+				"classname" => "glwFileAnalyzer",
+				"propertyname" => "fileanalyzer"
+			)
 		);
 		
 		private $required_classes = array(
@@ -186,6 +215,14 @@
 				PRIMARY KEY (id)
 			)";
 
+			$create_yalinks_cache = "CREATE table IF NOT EXISTS {$tp}yalinks_cache (
+				id INT AUTO_INCREMENT,
+				request_id INT NOT NULL,
+				resource_type VARCHAR (30) NOT NULL,
+				cached_link VARCHAR (255) NOT NULL,
+				PRIMARY KEY (id)
+			)";
+
 			$this->modx->query($create_nominations);
 			$err = $this->modx->errorInfo();
 
@@ -207,29 +244,54 @@
 			}
 		}
 
+		public function load_component($name) {
+			$classname = $this->components_info[$name]['classname'];
+			$path = $this->components_info[$name]['filename'];
+			$propertyname = $this->components_info[$name]['propertyname'];
+			$result = false;
+
+			if (property_exists($this, $propertyname) && $this->$propertyname instanceof $classname) {
+				$result = true;
+			} else if (class_exists($classname)) {
+				$this->$propertyname = new $classname($this);
+				$result = true;
+			} else if (file_exists($this->work_dir . "/" . $path)) {
+				include_once $this->work_dir . "/" . $path;
+				$this->$propertyname = new $classname($this);
+				$result = true;
+			}
+
+			if (!$result) {
+				$this->log("Component loader: can not find " . $name . "; Given data for search: " . print_r(array_merge(array(
+					'type of class' => $this->$propertyname,
+				), $this->components_info[$name]), true));
+			}
+		}
+
 
 		public function handle() {
 			$output = array();
 
-			include_once $this->work_dir . "/formprocessor.class.php";
-			include_once $this->work_dir . "/fileuploader.class.php";
-			include_once $this->work_dir . "/fileanalyzer.class.php";
-
-			$this->formprocessor = new glwFormProcessor($this);
-			$this->fileanalyzer = new glwFileAnalyzer($this);
-			$this->fileuploader = new glwFileUploader($this);
-
+			$this->load_component("formprocessor");
+			$this->load_component("fileuploader");
+			$this->load_component("fileanalyzer");
+			$this->load_component("yahelper");
+	
 			switch ($this->action) {
 				case 'ya_init':
-					$output = $this->fileuploader->ya_init();	
+					$output = $this->yahelper->check_token();	
 					break;
 
 				case 'ya_receive':
-					$output = $this->fileuploader->ya_receive();
+					$output = $this->yahelper->recieve_token();
 					break;
 
 				case 'request':
-					$output = $this->formprocessor->create_request();
+					$request_id = $this->formprocessor->create_request();
+					if ($output != 0) {
+						$output = $this->yahelper->upload($request_id);
+					}
+
 					break;
 
 				case 'files':
@@ -237,6 +299,7 @@
 					break;
 
 				case 'get_gallery':
+					$this->fileuploader->prepare_buffer();
 					$output = array();
 					break;
 
@@ -263,5 +326,30 @@
 			
 			$this->log_flush();
 			return $output;
+		}
+
+
+		public function get_user_file_link($user_id, $type) {
+			$link = "";
+	
+			if (isset($this->yadisk_links_cache[$user_id]) && isset($this->yadisk_links_cache[$user_id][$type])) {
+				$link = $this->yadisk_links_cache[$user_id][$type];
+			} else {
+				$last_request_id = $this->formprocessor->get_user_last_requests($user_id);
+				$tp = $this->table_prefix;
+				$result = $this->modx->query("SELECT * FROM {$tp}yalinks_cache WHERE request_id = " . intval($last_request_id) . " AND resource_type = '" . $type . "'");
+				
+				while (is_object($result) && $row = $result->fetch(PDO::FETCH_ASSOC)) {
+					$link = $row["cached_link"];
+				}
+
+				if (!isset($this->yadisk_links_cache[$user_id])) {
+					$this->yadisk_links_cache[$user_id] = array();
+				}
+
+				$this->yadisk_links_cache[$user_id][$type] = $link ? $link : false;
+			}
+
+			return $link;
 		}
 	}

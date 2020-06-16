@@ -12,6 +12,11 @@
 
 		this.notify = settings.notify || false;
 
+		if (this.id != '') {
+			settings.store.loaderId = this.id;
+			settings.server.loaderId = this.id;
+		}
+
 		this.store = new fhImageStore(settings.store);
 		this.server = new fhServer(settings.server);
 		this.selectable = this.store.selectable;

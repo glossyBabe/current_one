@@ -3,12 +3,20 @@
 		$(function() {
 			var submit = $('input[type^=submit]'),
 				presentationLoad = $('input[name^=presentation]'),
-				pressrelLoad = $('input[name^=pressrel]'),
+				pressrelLoad = $('input[name^=pressrelease]'),
 				logoLoad = $('input[name^=logo]'),
 				photoLoad = $('input[name^=photo]'),
 
 				hoverDelete = function() {
 
+				},
+
+				formitSwitchForm = function(form, mode) {
+					if (mode == 'files') {
+						$(form).removeClass('ajax_form');
+					} else {
+						$(form).addClass('ajax_form');
+					}
 				},
 
 				presentationSettings = {
@@ -22,19 +30,35 @@
 					store: {
 						preview: false,
 						limit: 1,
+						formInputName: 'presentation',
 						directoryPath: '/third_party/glware/images_buffer/',
 						gallery: presentationLoad.parent().parent().find('.file_loader_preview')
 					},
 					server: {
-						setupFormCallback: function(form, mode) {
-							if (mode == 'files') {
-								$(form).removeClass('ajax_form');
-							} else {
-								$(form).addClass('ajax_form');
-							}
-						}
+						setupFormCallback: formitSwitchForm
 					}
 				},
+
+				pressSettings = {
+					id: 'pressrel',
+					loadButton: pressrelLoad,
+					clicker: pressrelLoad.parent().find('input[name^=clicker]'),
+					submit: submit,
+
+					deleteReact: hoverDelete,	
+
+					store: {
+						limit: 1,
+						preview: false,
+						formInputName: 'pressrelease',
+						directoryPath: '/third_party/glware/images_buffer/',
+						gallery: pressrelLoad.parent().parent().find('.file_loader_preview')
+					},
+					server: {
+						setupFormCallback: formitSwitchForm
+					}
+				},
+
 				logoSettings = {
 					id: 'logo',
 					loadButton: logoLoad,
@@ -46,19 +70,15 @@
 					store: {
 						limit: 1,
 						preview: 'pic',
+						formInputName: 'logo',
 						directoryPath: '/third_party/glware/images_buffer/',
 						gallery: logoLoad.parent().parent().find('.file_loader_preview')
 					},
 					server: {
-						setupFormCallback: function(form, mode) {
-							if (mode == 'files') {
-								$(form).removeClass('ajax_form');
-							} else {
-								$(form).addClass('ajax_form');
-							}
-						}
+						setupFormCallback: formitSwitchForm
 					}
 				},
+
 				photoSettings = {
 					id: 'photo_dir',
 					loadButton: photoLoad,
@@ -70,34 +90,15 @@
 					store: {
 						limit: 1,
 						preview: 'pic',
+						formInputName: 'photo',
 						directoryPath: '/third_party/glware/images_buffer/',
 						gallery: photoLoad.parent().parent().find('.file_loader_preview')
 					},
 					server: {
-						setupFormCallback: function(form, mode) {
-							if (mode == 'files') {
-								$(form).removeClass('ajax_form');
-							} else {
-								$(form).addClass('ajax_form');
-							}
-						}
+						setupFormCallback: formitSwitchForm
 					}
 				},
-/*
-			pressSettings = {
-				store: {
-					directoryPath: '/third_party/glware/images_buffer/gallery/'
-				},
-				server: {
-					setupFormCallback: function(form, mode) {
-						if (mode == 'files') {
-							$(form).removeClass('ajax_form');
-						} else {
-							$(form).addClass('ajax_form');
-						}
-					}
-				}
-			},*/
+
 				gallerySettings = {
 					id: 'gallery',
 					loadButton: $('input[name^=new_picture]'),
@@ -108,17 +109,12 @@
 
 					store: {
 						preview: 'pic',
+						formInputName: 'pic[]',
 						directoryPath: '/third_party/glware/images_buffer/gallery/',
 						gallery: $('#pictures')
 					},
 					server: {
-						setupFormCallback: function(form, mode) {
-							if (mode == 'files') {
-								$(form).removeClass('ajax_form');
-							} else {
-								$(form).addClass('ajax_form');
-							}
-						}
+						setupFormCallback: formitSwitchForm
 					}
 				},
 

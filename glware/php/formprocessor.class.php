@@ -42,8 +42,29 @@
 		}
 
 
+		public function get_user_last_requests($user_id = 0) {
+			$result = false;
+			$rows = array();
+
+			$tp = $this->god_object->table_prefix;
+			$sql = "SELECT max(id) as last_id FROM {$tp}user_formit_request ";
+			$sql .= $user_id > 0
+				? "WHERE user_id = " . intval($user_id)
+				: "GROUP BY user_id";
+			$result = $this->modx->query($sql);
+
+			while (is_object($result) && $row = $result->fetch(PDO::FETCH_ASSOC)) {
+				$rows[] = $row['last_id'];
+			}
+			
+			return $user_id ? array_shift($rows) : $rows;
+		}
+
+
 		public function get_table($table_name) {
 			$output = array();
+			$users_cache = array();
+
 			$tp = $this->god_object->table_prefix;
 
 			switch ($table_name) {
@@ -52,16 +73,10 @@
 					if ($this->vote_already_registered()) {
 						$output = array("success" => false, "message" => "Спасибо за участие в голсовании!");
 					} else {
-
-						$users_cache = array();
-						$nominations = array();
-						$result = $this->modx->query("SELECT max(id) as last_id FROM {$tp}user_formit_request GROUP BY user_id");
 						$in = array();
+						$nominations = array();
 
-						while (is_object($result) && $row = $result->fetch(PDO::FETCH_ASSOC)) {
-							$in[] = $row['last_id'];
-						}
-
+						$in = $this->get_user_last_requests();
 						if (count($in)) {
 							$where = count($in) > 1
 								? "anl.request_id IN (" . implode(',', $in) . ")"
@@ -82,7 +97,11 @@
 										$nominations[$row['code']] = array('code' => $row['code'], 'info' => $row['public_name'], 'nominants' => array());
 									}
 
-									$nominations[$row['code']]['nominants'][] = array('nominant_val' => $row['request_id'], 'nominant_title' => $users_cache[$row['user_id']]->get('username'));
+									$nominations[$row['code']]['nominants'][] = array(
+										'nominant_val' => $row['request_id'],
+										'nominant_title' => $users_cache[$row['user_id']]->get('username'),
+										'presentation_href' => $this->god_object->get_user_file_link($row['user_id'], 'presentation')
+									);
 								}
 							}
 
@@ -95,11 +114,78 @@
 					break;
 
 				case 'request_table':
-					$output = array(
-						array('name' => 'Конкурсант 1', 'anket' => false, 'presentation' => false, 'press' => false, 'manager_photo' => 'dsf', 'gallery' => 'sdf', 'logo' => 'sdf'),
-						array('name' => 'Конкурсант 2', 'anket' => 'sdf', 'presentation' => 'df', 'press' => 'dsf', 'manager_photo' => 'dsf', 'gallery' => 'sdf', 'logo' => 'sdf'),
-						array('name' => 'Конкурсант 3', 'anket' => false, 'presentation' => false, 'press' => false, 'manager_photo' => false, 'gallery' => false, 'logo' => false)
-					);
+					$current_request = array();
+					$prev_req_id = 0;
+					$in = $this->get_user_last_requests();
+
+					if (count($in)) {
+						$where = count($in) > 1
+							? "fr.id IN (" . implode(',', $in) . ")"
+							: "fr.id = " . array_pop($in);	
+	
+						$sql = "SELECT fr.*, yc.* FROM {$tp}user_formit_request as fr
+								LEFT JOIN {$tp}yalinks_cache as yc ON yc.request_id = fr.id
+								WHERE {$where} ORDER BY request_id";
+						$result = $this->modx->query($sql);
+
+						while (is_object($result) && $row = $result->fetch(PDO::FETCH_ASSOC)) {
+							$current_id = intval($row['request_id']);
+							$type = $row['resource_type'];
+							$user_id = $row['user_id'];
+
+							if (!isset($users_cache[$row['user_id']])) {
+								$users_cache[$user_id] = $this->modx->getObject('modUser', $row['user_id']);
+							}
+	
+							if (!$this->is_member($users_cache[$user_id], 'Contestants') || !$type) {
+								$prev_req_id = $current_id;
+								continue;
+							}
+
+							if (empty($current_request)) {
+								$current_request = array(
+									'name' => $users_cache[$user_id]->get('username'),
+									'anket' => false,
+									'presentation' => false,
+									'press' => false,
+									'manager_photo' => false,	
+									'gallery' => false,	
+									'logo' => false
+								);
+							}
+
+							if ($prev_req_id && $current_id != $prev_req_id) {
+								$current_request = array();
+								$output[] = $current_request;
+							} else {
+								$link = $this->god_object->get_user_file_link($user_id, $type);
+
+								if ($type == 'presentation') {
+									$current_request['presentation'] = $link;
+								}
+								if ($type = 'logo') {
+									$current_request['logo'] = $link;
+								}
+								if ($type == 'dir_photo') {
+									$current_request['manager_photo'] = $link;
+								}
+								if ($type == 'press_release') {
+									$current_request['press'] = $link;
+								}
+								if ($type == 'gallery') {
+									$current_request['gallery'] = $link;
+								}
+							}
+
+							$this->god_object->log("get table of requests:" . print_r(array('id' => $current_id, 'prev' => $prev_req_id, 'request' => $current_request), true));
+							$prev_req_id = $current_id;
+						}
+
+						if (!empty($current_request)) {
+							$output[] = $current_request;
+						}
+					}
+
 					break;
 
 				case 'judges_activity':
@@ -247,11 +333,12 @@
 				
 			if ($success) {
 				$this->god_object->log("Successfuly created all nomination links. Preparng file routines");
-				$this->god_object->fileuploader->_ya_upload();
 			} else {
 				// roll-back of transaction... kind of
 				$this->modx->query("DELETE FROM {$tp}user_formit_request WHERE formit_hash = {$hash}");
 			}
+
+			return $success ? $request_id : 0;
 		}
 
 

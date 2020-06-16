@@ -7,6 +7,10 @@
 			'setupFormCallback': settings.setupFormCallback != undefined ? settings.setupFormCallback : false
 		};
 
+
+		this.loaderId = settings.loaderId || '';
+		this.servername = this.loaderId + '_fileserver';
+
 		this.iframe = false;
 		this.form = $(this.settings.formSelector)[0];
 		this.answer = '';
@@ -17,7 +21,7 @@
 				formRequisite = {
 					'files': {
 						'action': '/third_party/glware/ajhandler.php?glw_action=files',
-						'target': 'fileserver',
+						'target': this.servername,
 						'enctype': 'multipart/form-data'
 					},
 					'default': {
@@ -105,10 +109,10 @@
 
 
 		// create iframe for data exchanging with backend
-		this.iframe = $('iframe[name^=fileserver]');
+		this.iframe = $('iframe[name^=' + this.servername + ']');
 		if (this.iframe.length == 0) {
 			var iframe = document.createElement('iframe');
-			iframe.name = 'fileserver';
+			iframe.name = this.servername
 			iframe.style = 'display:none;';
 			this.iframe = $(document.body.appendChild(iframe));
 		}
@@ -121,6 +125,7 @@
 		// here we use 2 form handlers for different purposes
 		this.setupForm('files');
 		this.commandFlag.val('files');
+		this.iframe.contents().find('body').html(false);
 
 		if (this.iframe.length) {
 			t = setInterval(function() {

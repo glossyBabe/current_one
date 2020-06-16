@@ -9,6 +9,7 @@
 			preview: settings.preview || 's_',
 			deleteButton: false,
 			preloadedId: settings.preloadedId || '#preload_pictures',
+			formInputName: settings.formInputName || 'pic[]',
 			limit: settings.limit || 0,
 			gallery: settings.gallery,
 			containerClass: settings.containerClass || '',
@@ -82,12 +83,14 @@
 
 		// синхронизирует хранилище в инпуты предзагрузки и в галерею
 		this.mirror = function() {
-			var name = '', value = '', pic = '', forLoading = [], sends = {}, preloads = {};
+			var name = '', value = '', pic = '', forLoading = [], sends = {}, preloads = {},
+				that = this;
+
 			this.form.find('input').each(function(i) {
 				name = $(this).attr('name');
 				value = $(this).val();
 
-				if (name == 'pic[]') {
+				if (name == that.settings.formInputName) {
 					preloads[value] = $(this);
 				} else if (value == 'yes' || value == 'delete') {
 					sends[name] = $(this);
@@ -100,7 +103,8 @@
 
 				// грузим только если не грузили раньше,
 				// две переменных используется для команды удаления
-				if (!pic.inGal && !pic.loaded) {
+
+				if (!pic.inGal && !pic.loaded && this.settings.preview == 'pic') {
 					forLoading.push(pic.path);
 				}
 
@@ -117,7 +121,7 @@
 				if (!pic.preloadField && !preloads[safeName]) {
 					field = document.createElement('INPUT'); 
 					field.type = 'hidden';
-					field.name = 'pic[]';
+					field.name = this.settings.formInputName;
 					field.value = pic.safe;
 					this.store[safeName].preloadField = $(field).appendTo(this.preloadedDiv);
 				} else if (pic.preloadField == 'delete') {
@@ -137,39 +141,56 @@
 		},
 
 		this.refreshGallery = function() {
-			var container = false, imgElement, sp;
+			var container = false, imgElement, sp,
+				action;
 
 			for (var safeName in this.store) {
-				imgElement = this.store[safeName].loaded;
-
-				if (this.store[safeName].inGal == false && imgElement) {
-					container = document.createElement('div');
-					if (this.settings.containerClass) {
-						container.class = this.settings.containerClass;
-					} else {
-						container.style = this.settings.containerStyle;
-					}
-
-					if (this.settings.preview == 'pic') {
-						container.appendChild(imgElement);
-						
-						this.gallery.append(container);
-						this.selectable.subscribe(imgElement, safeName);
-					} else {
-						sp = document.createElement("span");
-						sp.innerText = this.store[safeName].path;
-						container.appendChild(sp);
-						this.gallery.append(container);
-					}
-
-					this.store[safeName].inGal = true;
+				if (this.store[safeName].inGal == false) {
+					action = 'add';
 				} else if (this.store[safeName].inGal == 'delete') {
-					if (this.selectable.selected.length) {
-						this.selectable.unsubscribe(safeName);
-					}
+					action = 'delete';
+				}
+				
+				switch (action) {
+					case 'add':
+						container = document.createElement('div');
 
-					this.store[safeName].loaded.remove();
-					delete this.store[safeName];
+						if (this.settings.containerClass) {
+							container.class = this.settings.containerClass;
+						} else {
+							container.style = this.settings.containerStyle;
+						}
+
+						if (this.settings.preview == 'pic') {
+							imgElement = this.store[safeName].loaded;
+
+							if (!imgElement) {
+								break;
+							}
+
+							container.appendChild(imgElement);
+							this.gallery.append(container);
+							this.selectable.subscribe(imgElement, safeName);
+						} else {
+							sp = document.createElement("span");
+							sp.innerText = this.store[safeName].path;
+							container.appendChild(sp);
+							this.gallery.append(container);
+						}
+
+						this.store[safeName].inGal = true;
+
+						break;
+
+					case 'delete':
+						if (this.selectable.selected.length) {
+							this.selectable.unsubscribe(safeName);
+						}
+
+						this.store[safeName].loaded.remove();
+						delete this.store[safeName];
+
+						break;
 				}
 			}
 
