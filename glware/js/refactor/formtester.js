@@ -13,7 +13,7 @@ $(function () {
       par = document.createElement("p");
 
 
-    (inputs = $("form.request_form input").add("form.request_form select").add("form.request_form textarea")),
+    (inputs = $("form.request_form input").add("form.request_form select")),
       (formElements = {});
 
 	var url = "/third_party/glware/ajhandler.php",
@@ -42,14 +42,14 @@ $(function () {
 			"Юридический адрес": "org_address_legal",
 			"Почтовый адрес": "org_address_post",
 			"География деятельности": "org_geo_type",
-			"Выбранный регион": "org_geo_region_name",
+			"Выбранный регион": "org_geo_region",
 			"Участие в номинациях": "nominant",
 			"Дополнительная информация": "nominant_info",
 			"сеть года: название сети": "nominant_network_name",
 			"сеть года: тип": "nominant_network_type",
 			"дебют года: тип": "nominant_debut_type",
 			"маркетинговый проект года: тип": "nominant_marketnetwork_type",
-			"Рекламный макет года: тип": "nominant_advertising_type"
+			"рекламный макет года: тип": "nominant_advertising_type"
 		}
 	};
 
@@ -284,7 +284,7 @@ $(function () {
 
 		inputs = conf.inputs;
 				
-		// let's rock babe]
+		// let's rock babe
 		for (i = 0, n = inputs.length; i < n; ++i) {
 		  var tp = inputs[i].type,
 			nm = inputs[i].name;
@@ -467,7 +467,6 @@ $(function () {
 				val = '',
 				form = dataset.form;
 
-			console.log("Iterating... elements", elements);
 			for (var name in form) {
 				formName = config.fields_from_rus[name];
 
@@ -481,21 +480,13 @@ $(function () {
 						elements[formName].value = form[name];
 					}
 				} else if (form[name].length == 1) {
-					elem = $("input[value^=\"" + form[name][0] + "\"]");
-					elem.each(function() {
-						console.log("click on " + formName + " and name of element is " + this.name);
-						if (this.name == formName + "[]") {
-							this.click();
-						}
-					});
-
-					console.log("before click: ", name, formName, form[name], elem);
+					$("input[value^=\"" + form[name] + "\"]").click();
+//					console.log(name, formName, form[name].length);
 				} else if (form[name].length > 1) {
 					for (var i = 0, n = form[name].length; i < n; ++i) {
-						elem = $("input[value^=\"" + form[name][i] + "\"]");
-						elem[0].click();
+						$("input[value^=\"" + form[name][i] + "\"]").click();
 					}
-//					console.log("fill in form: ", name, formName, elem);
+//					console.log(name, formName, form[name].length);
 
 				}
 			}

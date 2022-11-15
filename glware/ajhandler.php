@@ -53,12 +53,15 @@
 	if ($mode == 'slave') {
 		$_resp = $response;
 	} else {
-		if ($response['redirect'] && $response['url'] != '') {
+		if ($glw_action == "print_yadisk_directory") {
+			echo $response;	
+		} else if ($response['redirect'] && $response['url'] != '') {
 			$_GET = array();
 
 			header("Location: " . $response['url']);
 			exit;
 		} else {
 			echo json_encode($response);
+			//print_r($response);
 		}
 	}

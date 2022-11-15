@@ -3,19 +3,28 @@
 		this.id = settings.id;
 //		console.log('Constructor runs: ' + this.id);
 
-		this.callbacks = {
-			notify: settings.notifyCallback || false,
-			loadStatus: settings.loadFileCallback || false
-		};
+		this.config = {
+			callbacks: {
+				notify: settings.notifyCallback || false,
+				loadStatus: settings.loadFileCallback || false
+			}
+		}
 
+		this.controlPanel = new ControlPanel(this, {
+			loadB: settings.loadButton,
+			clicker: settings.clicker,
+			deleteB: settings.deleteButton,
+			submitB: settings.submit,
+			notify = settings.notify || false;
+		});
+/*
 		this.controls = {
 			loadButton: settings.loadButton || false,
 			clicker: settings.clicker || false,
 			deleteButton: settings.deleteButton || false,
 			submit: settings.submit || false
 		};
-
-		this.notify = settings.notify || false;
+*/
 		this.navPanel = settings.navPanel || false;
 		
 		this.loading = false;
@@ -34,22 +43,23 @@
 		this.server = new fhServer(settings.server);
 		this.optionSelectable = settings.selectable || false;
 		this.selectable = this.store.selectable;
-
+/*
 		if (!this.controls.deleteButton) {
-			var del = document.createElement('div'),
-				a = document.createElement('a');
+			var del = document.createelement('div'),
+				a = document.createelement('a');
 
-			a.setAttribute('class', 'cr-icon glyphicon glyphicon-remove');
-			a.setAttribute('style', 'color: white;');
+			a.setattribute('class', 'cr-icon glyphicon glyphicon-remove');
+			a.setattribute('style', 'color: white;');
 			a.href = '';
-			del.setAttribute(
+			del.setattribute(
 				'style',
 				'width: 20px; height: 20px; border-radius: 10px; margin: 5px 0; background-color: red; float: right; text-align: center; display:none;'
 			);
-			del.setAttribute('data-action', 'remove');
+			del.setattribute('data-action', 'remove');
 			del.appendChild(a);
 			this.controls.deleteButton = $(this.store.gallery[0].appendChild(del));
 		}
+*/
 
 		this.runCallback = function(cbName, params) {
 			var func = this.callbacks[cbName],
@@ -64,7 +74,10 @@
 			}
 		}
 
-		this.switchActivity = function(state) {
+// - extract to CheckboxRelatedControlPanel!!! LATER
+// new Property navPanel
+/*
+		this.switchactivity = function(state) {
 			if (state !== undefined) {
 				this.navPanel.fadeIn();
 				//this.controls.clicker.show();
@@ -77,6 +90,8 @@
 				this.navPanel.fadeOut();
 			}	
 		}
+*/
+
 
 		// universal public method that removes files
 		this.deleteMethod = function(forDeleting, cb) {
@@ -95,7 +110,7 @@
 				}
 			});
 
-			this.submit();
+			this.controlPanel.submit();
 			if (cb !== undefined && cb.call !== undefined && typeof cb == "function") {
 				cb();
 			}
@@ -114,59 +129,84 @@
 			this.selectFileLoop = setInterval(function() {
 				var unique = [];
 				fileSelected = loader.fileSelected();
-				loader.errorNotice(false);
 
 				//console.log("add react loop");
 
 				if (fileSelected && fileSelected != 'repeat') {
-
-					unique = loader.uniqueFilter();
-					clearInterval(loader.selectFileLoop);
-
-					loader.runCallback("loadStatus", loader.loading);
-
-					if (unique.length < loader.controls.loadButton[0].files.length) {
-						loader.errorNotice('Вы пытаетесь загрузить файл, который уже присутствует.');
-						loader.controls.loadButton.val('');
-						return;
-					}
-
-					if (loader.store.limit && loader.store.loaded + 1 > loader.store.limit) {
-						loader.errorNotice('Ограничение по количеству загруженных файлов.');
-						loader.controls.loadButton.val('');
-						return;
-					}
-
-
-					loader.server.listen(function(response) {
-						loader.controls.loadButton.val('');
-						loader.loading = false;
-						loader.runCallback("loadStatus", false);
-
-						var images = [];
-
-						for (var i = 0, n = response.errors.length; i < n; ++i) {
-							err = response.errors[i];
-
-							if (!err) {
-								continue;
-							}
-
-							loader.errorNotice(err);
-						}
-
-						for (var i = 0, n = response.loaded.length; i < n; ++i) {
-							images.push(response.loaded[i]);
-						}
-
-						loader.store.add(images, true);
-						//console.log('addReact callback ends, store updated', images);
-					});
-
-					loader.submit();
 				}
 			}, 600);
 		};
+
+		this.loading = function(fname) {
+			if (fname !== undefined) {
+				this.loading = fname;	
+				this.runCallback("loadStatus", fname);
+			} else {
+				this.loading = false;
+				this.runCallback("loadStatus", false);
+			}
+		}
+
+		this.load = function() {
+			unique = loader.uniqueFilter();
+//			clearInterval(loader.selectFileLoop);
+
+			loader.runCallback("loadStatus", loader.loading);
+
+			if (unique.length < loader.controls.loadButton[0].files.length) {
+				loader.errorNotice('Вы пытаетесь загрузить файл, который уже присутствует.');
+				loader.controlPanel.loadBReset();
+				return;
+			}
+
+			if (loader.store.limit && loader.store.loaded + 1 > loader.store.limit) {
+				loader.errorNotice('Ограничение по количеству загруженных файлов.');
+				loader.controlPanel.loadBReset();
+				return;
+			}
+
+			loader.server.listen(function(response) {
+				loader.controlPanel.loadBReset();
+				loader.loading(false);
+
+				var images = [];
+
+				for (var i = 0, n = response.errors.length; i < n; ++i) {
+					err = response.errors[i];
+
+					if (!err) {
+						continue;
+					}
+
+					loader.errorNotice(err);
+				}
+
+				for (var i = 0, n = response.loaded.length; i < n; ++i) {
+					images.push(response.loaded[i]);
+				}
+
+				loader.store.add(images, true);
+				//console.log('addReact callback ends, store updated', images);
+			});
+
+			loader.controlPanel.submit();
+		}
+
+		this.selectLoop = function(cb) {
+			var loader = this;
+
+			this.selectFileLoop = setInterval(function() {
+				var fname = "";
+
+				loader.errorNotice(false);
+
+				if (!!(fname = loader.controlPanel.isFileSelected())) {
+					clearInterval(loader.selectFileLoop);
+					loader.loading(fname);
+					cb();
+				}
+			});
+		}
 
 
 		this.deleteReact = function() {
@@ -189,11 +229,6 @@
 				this.controls.deleteButton.hide();
 			}
 		};
-
-
-		this.submit = function() {
-			this.controls.submit.click();
-		}
 
 
 		this.changeState = function(state) {
@@ -258,6 +293,10 @@
 	fhFileLoader.prototype.bindEvents = function() {
 		var loader = this;
 
+		this.controlPanel.setLoadButtonReaction(function() {
+			loader.selectLoop(loader.load);
+		});
+
 		this.controls.loadButton.on('click', function(e) {
 			loader.addReact.call(loader);
 		});
@@ -287,31 +326,15 @@
 		return filtered;
 	};
 
-	fhFileLoader.prototype.errorNotice = function(message) {
-		if (this.notify) {
-			if (this.callbacks.notify) {
-				this.runCallback("notify", message);	
-			} else {
-				if (message) {
-					$(this.notify).append(
-						$('<div>' + message + '</div>').css({
-							backgroundColor: 'pink',
-							display: 'inline-block',
-							margin: '2px',
-							padding: '5px'
-						})
-					);
-				} else {
-					console.log("notify zero: ", this.notify, "id: ", this.id);
-					this.notify[0].innerHTML = '';
-				}
-			}
+
+	fhFileLoader.prototype.error(message) {
+		if (this.callbacks.notify) {
+			this.runCallback("notify", message);
 		} else {
-			if (message) {
-				console.error(message);
-			}
+			this.controlPanel.displayError(message);
 		}
-	};
+	}
+
 
 	if (window.fhFileLoader == undefined) {
 		window.fhFileLoader = function(settings) {

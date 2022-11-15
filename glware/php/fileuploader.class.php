@@ -10,24 +10,134 @@
 		private $response;
 
 		public function __construct(&$god_object) {
+
 			$this->god_object = $god_object;
 			$this->god_object->load_component("fileanalyzer");
 			$this->analyzer = $this->god_object->fileanalyzer;
 
 			$this->config = array(
-				'prev_width' => 50,
-				'prev_height' => 50,
+				'prev_width' => 150,
+				'prev_height' => 150,
 				'id_set' => array(
-					'gallery' => 'new_picture',
-					'presentation' => 'presentation',
-					'photo' => 'photo',
-					'press_release' => 'pressrelease',
-					'logo' => 'logo'
+					'gallery' => '_pic',
+					'photo' => '_photo',
+					'pressrelease' => '_pressrelease',
+					'logo' => '_logo'
+				),
+				'type_codes' => array(
+					'pressrelease' => 2,
+					'photo' => 3,
+					'logo' => 4,
+					'gallery' => 5
 				),
 				'buffer' => dirname($this->god_object->work_dir) . '/images_buffer'
 			);
 
-			$this->distribute_files();
+			// file flags depended on nominations list
+			$config_update = $this->build_presentation_file_flags();
+			$this->config["id_set"] = array_merge($config_update["id_set"], $this->config["id_set"]);
+			$this->config["type_codes"] = array_merge($config_update["type_codes"], $this->config["type_codes"]);
+			$this->config["code_types"] = $config_update["code_types"];
+			
+			$this->config["code_types"][2] = "pressrelease";
+			$this->config["code_types"][3] = "photo";
+			$this->config["code_types"][4] = "logo";
+			$this->config["code_types"][5] = "gallery";
+
+			//$this->god_object->log("Updated arrays for file keys: " . print_r($this->config, true));
+
+			$this->identify_file_keys();
+		}
+
+
+		private function build_presentation_file_flags() {
+			$update = array();
+			$tp = $this->god_object->table_prefix;
+			$sql = "SELECT * FROM {$tp}nomination_list WHERE code != 'jury_selected'";
+			$res = $this->god_object->modx->query($sql);
+			$counter = 10;
+
+			if (is_object($res)) {
+				while ($row = $res->fetch(PDO::FETCH_ASSOC)) {
+					$update["id_set"]["presentation_" . $row["code"]] = "_presentation_" . $row["code"];
+					$update["type_codes"]["presentation_" . $row["code"]] = $counter;
+					$update["code_types"][$counter] = "presentation_" . $row["code"];
+					$counter++;
+				}
+			}
+
+			return $update;
+		}
+
+
+		public function get_filetype($file_name) {
+			$filetype = 6; // type unknown
+			$namebuffer = $file_name;
+			$hash_chunk_length = 6;
+			$user_id = $this->god_object->current_user["id"];
+			$name_parts = explode("_", $namebuffer);
+
+			$namebuffer = strpos($namebuffer, "s_") === 0 ? $name_parts[1] : array_shift($name_parts);
+
+			// delete userid + hash chunk
+			$namebuffer = substr($namebuffer, strlen(strval($user_id)) + $hash_chunk_length);
+		
+			if (strlen($namebuffer) == 1 && array_key_exists($namebuffer, $this->config["code_types"])) {
+				$filetype = $this->config["code_types"][$namebuffer];
+			} else if (strlen($namebuffer) == 2 && $namebuffer[0] == 1) {
+				$filetype = $this->config["code_types"][$namebuffer];
+			} else if (strlen($namebuffer) == 2 && $namebuffer[0] == 5) {
+				$filetype = "gallery";
+			}
+
+			$this->god_object->log("Trying to parse filename " . $file_name . ": as result it is " . $namebuffer . ", " . $this->config["code_types"][$namebuffer]);
+
+			return $filetype;
+		}
+
+
+		public function generate_name($file_type, $old_name, $number = 0) {
+			if (!isset($this->config["type_codes"][$file_type])) {
+				$this->god_object->log("Detected unknown filetype. It is: " . $file_type);
+				return "ERROR-FILETYPE";	
+			}
+
+			$name = $old_name;
+			$username = $this->god_object->current_user["username"];
+			$user_id = $this->god_object->current_user["id"];
+			$file_code = $this->config['type_codes'][$file_type];
+			$type_counter = "";
+	
+			if ($file_type == "gallery") {
+				$type_counter = $number;
+			}
+
+			$rp = $this->god_object->requestprocessor;
+			$prev_hash = $rp->get_previous_request_hash();
+
+			if ($prev_hash) {
+				$sign = $user_id . strtolower(substr($prev_hash, 0, 6));
+				if (strpos($name, $sign) === 0) {
+					$this->god_object->log("Name before generating name: " . $name);
+					$parts = explode("_", $name);
+					$file_type_part = str_replace($sign, "", $parts[0]);
+					$name = trim(str_replace($sign . $file_type_part . "_" . $username . " -", "", $name));
+				} else {
+
+				}
+			}
+
+			$this->god_object->log("Name after generating name: " . $name);
+
+			$new_name = "";
+			$name_parts = explode("^", $name);
+			$ext = array_pop($name_parts);
+			$oldname = implode("^", $name_parts);
+
+			$hash_chunk = strtolower(substr($this->god_object->params["hash"], 0, 6));
+			$new_name = $user_id . $hash_chunk . $file_code . $type_counter . "_" . $username . " - " . $oldname . "." . strtolower($ext);
+			
+			return $new_name;
 		}
 
 
@@ -41,11 +151,15 @@
 		}
 
 	
-		private function distribute_files() {
+		private function identify_file_keys() {
+			if (empty($_FILES)) {
+				return false;
+			}
+
 			$not_empty_key = '';
 			foreach ($this->config['id_set'] as $type => $key) {
 				if (array_key_exists(preg_replace('/[^a-z_]*/i', '', $key), $_FILES) && $this->not_empty($key)) {
-					$this->requested_type = $type;
+					$this->requested_type = strpos($type, "presentation") === 0 ? "presentation" : $type;
 					$not_empty_key = $key;
 					break;
 				}
@@ -53,10 +167,15 @@
 
 			$files = $_FILES[$not_empty_key];
 
+			if (!$not_empty_key) {
+				$this->god_object->log("Not known file type.");
+			}
+
 			if ($this->multi) {
 				for ($i = 0, $n = count($files['error']); $i < $n; ++$i) {
 					$this->files[] = array(
 						'name' => $files['name'][$i],
+						//'name' => $this->generate_name($files["name"][$i], $i),
 						'tmp_name' => $files['tmp_name'][$i],
 						'type' => $this->requested_type,
 						'error' => $files['error'][$i],
@@ -69,6 +188,7 @@
 			} else {
 				$this->files[] = array(
 					'name' => $files['name'],
+					//'name' => $this->generate_name($files["name"]),
 					'tmp_name' => $files['tmp_name'],
 					'type' => $this->requested_type,
 					'error' => $files['error'],
@@ -96,21 +216,21 @@
 					if (!empty($deleted_files)) {
 					}
 					$type_set = array('jpeg', 'gif', 'png');
-					$size = 10000000;
+					$size = 1024 * 2000;
 					$make_preview = true;
 
 				} else if ($type == 'logo' || $type == 'photo') {
 					$type_set = array('jpeg', 'gif', 'ai', 'png');
-					$size = 10000000;
+					$size = 1024 * 2000;
 					$make_preview = true;
 
 				} else if ($type == 'presentation') {
-					$type_set = array('pptx', 'ppt');
-					$size = 10000000;
+					$type_set = array('pptx', 'ppt', 'pdf');
+					$size = 1024 * 8000;
 
-				} else if ($type == 'press_release') {
+				} else if ($type == 'pressrelease') {
 					$type_set = array('odt', 'doc', 'docx');
-					$size = 10000000;
+					$size = 1024 * 2000;
 				}
 
 				$this->god_object->log("Files array filled with " . count($this->files) . " files");
@@ -120,8 +240,8 @@
 				), $this->files);
 
 				if (empty($this->files)) {
-					$this->god_object->log('Loading files interrupted because target file format is not matches. Try ' . implode(',', $type_set));
-					$this->response['errors'][] = "Не верный формат, допустимые форматы указаны в описании.";
+					$this->god_object->log('Loading files interrupted because of ' . $this->analyzer->get_errors() . ' Try ' . implode(',', $type_set));
+					$this->response['errors'][] = $this->analyzer->get_errors();//"Не верный формат, допустимые форматы указаны в описании.";
 				} else if (is_array($this->files)) {
 					$this->_upload($type, $make_preview);
 				}
@@ -161,7 +281,42 @@
 			return $result;
 		}
 
+	
+		/* remove all files belonged to this user (from older sessions) before loading current collection from ya.disk */
+		private function clean_buffer() {
+			$buf = $this->config["buffer"];	
+			$gal = $this->config["buffer"] . "/gallery/";
+			$user_id = $this->god_object->current_user["id"];
 
+			if (is_dir($buf)) {
+				$content = scandir($buf);							
+				foreach ($content as $filename) {
+					$path = "{$buf}/{$filename}";
+
+					if ($filename != "." && $filename != ".." && strpos($filename, $user_id) === 0) {
+						unlink($path);
+					}
+				}
+
+				// now cleaning gallery
+				if (is_dir($gal)) {
+					$content = scandir($gal . $filename);
+					
+					foreach ($content as $filename) {
+						$path = "{$gal}/{$filename}";			
+	
+						if ($filename != "." && $filename != ".." && strpos($filename, $user_id) === 0) {
+							unlink($path);
+						}
+					}
+				}
+
+			}
+	
+		}
+
+
+		/* DEPRICATED */
 		function prepare_buffer() {
 			$buf = $this->config['buffer'];
 			if (is_dir($buf)) {
@@ -201,6 +356,26 @@
 					$this->god_object->log("some directory permissions requried for uploader working", 1);
 				}
 			}
+		}
+
+
+		public function create_files($file_names) {
+			$file_handlers = array("gallery" => array());
+
+			foreach ($file_names as $fname => $link) {
+				if (!$link) {
+					continue;
+				}
+				$file_handlers[$fname] = fopen($this->config["buffer"] . "/" . $fname, "w+");
+			}
+
+			if (!empty($file_names["gallery"])) {
+				foreach ($file_names["gallery"] as $fname => $link) {
+					$file_handlers["gallery"][$fname] = fopen($this->config["buffer"] . "/gallery/" . $fname, "w+");
+				}
+			}
+
+			return $file_handlers;
 		}
 
 

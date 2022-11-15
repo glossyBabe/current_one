@@ -217,30 +217,30 @@
 
 				pressSettings = {
 					id: 'pressrel',
-					loadButton: pressrelLoad,
-					clicker: pressrelLoad.parent().find('input[name^=clicker]'),
-					submit: submit,
-					notify: $('p#notify_pressrelease'),
+					controls: {
+						loadButton: pressrelLoad,
+						deleteButton: pressrelLoad.parent().find('input[name^=deleter]'),
+						clicker: pressrelLoad.parent().find('input[name^=clicker]'),
+						submit: submit,
+						notify: $('p#notify_pressrelease'),
+						gallery: pressrelLoad.parent().parent().find('.file_loader_preview')
+					}
 
-					navPanel: $('div#alertblock_pressrelease'),
-
+					wrapper: $('div#alertblock_pressrelease'), // используется только в каллбаках
 					deleteReact: hoverDelete,	
-					deleteButton: pressrelLoad.parent().find('input[name^=deleter]'),
-					notifyCallback: otherFileNotifyCB,
 
-					store: {
-						limit: 1,
-						preview: false,
-						preloadedId: "#preload_pressrelease",
-						formInputName: 'pressrelease',
-						directoryPath: '/third_party/glware/images_buffer/',
-						gallery: pressrelLoad.parent().parent().find('.file_loader_preview'),
+					callbacks: {
+						notifyCallback: otherFileNotifyCB,
 						successLoadCallback: otherFileSuccessCB,
-						successDeleteCallback: otherFileDeleteCB
-					},
-					server: {
+						successDeleteCallback: otherFileDeleteCB,
 						setupFormCallback: formitSwitchForm
 					}
+
+					storeLimit: 1,
+					displayPreview: false,
+					preloadedId: "#preload_pressrelease",
+					formInputName: 'pressrelease',
+					directoryPath: '/third_party/glware/images_buffer/',
 				},
 
 				logoSettings = {
@@ -282,7 +282,6 @@
 
 					deleteButton: photoLoad.parent().find("input[name^=deleter]"),
 					deleteReact: hoverDelete,	
-					notifyCallback: otherFileNotifyCB,
 
 					store: {
 						limit: 1,

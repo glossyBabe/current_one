@@ -2,6 +2,7 @@
 	class glwFileAnalyzer {
 		var $god_object;
 		var $config = array();
+		var $error;
 
 		public function __construct(&$system) {
 			$this->god_object = $system;
@@ -17,7 +18,9 @@
 			}
 
 			foreach ($files as $file) {
-				if (isset($this->config['size_constraint']) && filesize($file['tmp_name']) < intval($this->config['size_constraint'])) {
+				if (isset($this->config['size_constraint']) && filesize($file['tmp_name']) > intval($this->config['size_constraint'])) {
+					$this->put_error("Загружаемый файл большего размера чем указано в требованиях.");	
+				} else {
 					foreach ($this->config['types'] as $type) {
 						$method_name = 'is_' . $type;
 						$res = method_exists($this, $method_name)
@@ -28,6 +31,8 @@
 							$this->god_object->log("File " . $file['name'] . " is checked. Type is " . $type);
 							$file['real_type'] = $type;
 							$validated_files[] = $file;
+						} else {
+							$this->put_error("Неверный формат, допустимые форматы указаны в описании.");
 						}
 					}
 				}
@@ -36,8 +41,17 @@
 			return $validated_files;	
 		}
 
+		private function is_pdf($file) {
+			$last_part = array_pop(explode('.', $file['name']));
+			return strtolower($last_part) == 'pdf' ? 'pdf' : false ;
+		}
+
+		private function put_error($message) {
+			$this->error = $message;
+		}
+
 		public function get_errors() {
-			return $this->errors;	
+			return $this->error;
 		}
 
 		private function is_jpeg($file) {
@@ -61,6 +75,11 @@
 		}
 
 		private function is_pptx($file) {
+			$last_part = array_pop(explode('.', $file['name']));
+			return strtolower($last_part) == 'pptx' ? 'pptx' : false;
+		}
+
+		private function is_ppt($file) {
 			$last_part = array_pop(explode('.', $file['name']));
 			return strtolower($last_part) == 'ppt' ? 'ppt' : false;
 		}

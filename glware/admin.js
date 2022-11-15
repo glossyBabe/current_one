@@ -1,4 +1,5 @@
 $(function() {
+
 	var checkboxes = {},
 		form = $('.judge_form').find('form'),
 		actionUrl = form[0].getAttribute('action');

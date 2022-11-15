@@ -15,7 +15,6 @@ $(function() {
 	// showing and hiding areas
 	function toggleSlaveAreas (key, state) {
 		var func = state ? 'show' : 'hide';
-		console.log("The click happened and id is " + key, state);
 		for (var i = 0, n = masters[key].length; i < n; $(masters[key][i])[func](), ++i);
 	}
 
@@ -53,7 +52,6 @@ $(function() {
 			bindMasterControlElement(this, this.getAttribute('master-control'));
 		}
 	});
-	console.log("masterstvo: ", masters);
 
 	$(document).on("submit", ".ajax_form", function(event) {
 		console.log("Prenadlejit? " + $(event.target[0].form).hasClass('request_form'));
@@ -90,7 +88,6 @@ $(function() {
 	$('.request_holder').on('click', function(e) {
 		elemId = e.target.getAttribute('id');
 
-//		console.log("Click happened and checked is ", elemId, e.target);
 		if (elemId && (e.target.type == 'checkbox' || e.target.type == 'radio') && masters[elemId] != undefined) {
 			toggleSlaveAreas(elemId, e.target.checked);
 		}
